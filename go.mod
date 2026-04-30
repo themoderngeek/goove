@@ -1,6 +1,6 @@
 module github.com/themoderngeek/goove
 
-go 1.26.2
+go 1.22
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
