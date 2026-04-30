@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/themoderngeek/goove/internal/music"
 )
 
 // fakeRunner records the script it was called with and returns scripted output.
@@ -68,5 +70,8 @@ func TestRunnerErrorBecomesErrUnavailable(t *testing.T) {
 	_, err := c.IsRunning(context.Background())
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !errors.Is(err, music.ErrUnavailable) {
+		t.Fatalf("err = %v; want wrapping music.ErrUnavailable", err)
 	}
 }
