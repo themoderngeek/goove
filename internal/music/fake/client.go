@@ -139,3 +139,5 @@ func (c *Client) SetVolume(ctx context.Context, percent int) error {
 	c.volume = percent
 	return nil
 }
+
+var _ music.Client = (*Client)(nil)
