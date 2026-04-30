@@ -3,6 +3,8 @@
 package applescript
 
 // scriptIsRunning returns "true" or "false" on stdout.
+// NOTE: matches any process named "Music"; a third-party app with that name
+// would be a false positive. Acceptable for the MVP.
 const scriptIsRunning = `tell application "System Events" to return (name of processes) contains "Music"`
 
 // scriptLaunch starts Music.app without bringing it to the foreground.
@@ -12,10 +14,13 @@ const scriptLaunch = `tell application "Music" to launch`
 //   - "NOT_RUNNING"
 //   - "NO_TRACK"
 //   - 7 newline-separated lines: title, artist, album, position, duration, state, volume
+// NOTE: linefeed (U+000A) is the field delimiter. Track metadata containing a
+// literal newline will corrupt the parsed output. Accepted as an MVP limitation.
 const scriptStatus = `tell application "Music"
 	if not running then return "NOT_RUNNING"
 	try
 		set t to current track
+	-- catches "Can't get current track." only; try block is intentionally minimal
 	on error
 		return "NO_TRACK"
 	end try
