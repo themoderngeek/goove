@@ -16,7 +16,7 @@ import (
 // Special sentinels NOT_RUNNING and NO_TRACK are mapped to the corresponding
 // sentinel errors. LastSyncedAt is left zero — the caller stamps it.
 func parseStatus(raw string) (domain.NowPlaying, error) {
-	trimmed := strings.TrimRight(raw, "\n")
+	trimmed := strings.TrimSpace(raw)
 
 	switch trimmed {
 	case "NOT_RUNNING":
@@ -30,6 +30,10 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 		return domain.NowPlaying{}, fmt.Errorf("%w: expected 7 lines, got %d", music.ErrUnavailable, len(lines))
 	}
 
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+
 	posSec, err := strconv.ParseFloat(lines[3], 64)
 	if err != nil {
 		return domain.NowPlaying{}, fmt.Errorf("%w: position parse: %v", music.ErrUnavailable, err)
@@ -38,7 +42,7 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 	if err != nil {
 		return domain.NowPlaying{}, fmt.Errorf("%w: duration parse: %v", music.ErrUnavailable, err)
 	}
-	vol, err := strconv.Atoi(strings.TrimSpace(lines[6]))
+	vol, err := strconv.Atoi(lines[6])
 	if err != nil {
 		return domain.NowPlaying{}, fmt.Errorf("%w: volume parse: %v", music.ErrUnavailable, err)
 	}

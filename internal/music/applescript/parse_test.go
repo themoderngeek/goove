@@ -77,3 +77,29 @@ func TestParseStatusOnNonNumericPositionReturnsErrUnavailable(t *testing.T) {
 		t.Fatalf("err = %v; want ErrUnavailable", err)
 	}
 }
+
+func TestParseStatusHandlesCRLFLineEndings(t *testing.T) {
+	raw := "T\r\nA\r\nAlb\r\n10.0\r\n200.0\r\nplaying\r\n80\r\n"
+	np, err := parseStatus(raw)
+	if err != nil {
+		t.Fatalf("parseStatus err = %v", err)
+	}
+	if np.Track.Title != "T" {
+		t.Errorf("Title = %q; want %q", np.Track.Title, "T")
+	}
+	if np.Volume != 80 {
+		t.Errorf("Volume = %d; want 80", np.Volume)
+	}
+	if !np.IsPlaying {
+		t.Errorf("IsPlaying = false; want true")
+	}
+}
+
+func TestParseStatusHandlesCRLFOnSentinel(t *testing.T) {
+	if _, err := parseStatus("NOT_RUNNING\r\n"); !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+	if _, err := parseStatus("NO_TRACK\r\n"); !errors.Is(err, music.ErrNoTrack) {
+		t.Fatalf("err = %v; want ErrNoTrack", err)
+	}
+}
