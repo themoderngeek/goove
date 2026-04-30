@@ -75,3 +75,37 @@ func TestRunnerErrorBecomesErrUnavailable(t *testing.T) {
 		t.Fatalf("err = %v; want wrapping music.ErrUnavailable", err)
 	}
 }
+
+func TestStatusParsesRunnerOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("T\nA\nAlb\n10.0\n200.0\nplaying\n80\n")}
+	c := New(r)
+
+	np, err := c.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status err = %v", err)
+	}
+	if r.script != scriptStatus {
+		t.Errorf("ran %q; want scriptStatus", r.script)
+	}
+	if np.Track.Title != "T" {
+		t.Errorf("Title = %q", np.Track.Title)
+	}
+	if !np.IsPlaying {
+		t.Error("IsPlaying = false; want true")
+	}
+	if np.Volume != 80 {
+		t.Errorf("Volume = %d; want 80", np.Volume)
+	}
+	if np.LastSyncedAt.IsZero() {
+		t.Error("LastSyncedAt should be stamped by client")
+	}
+}
+
+func TestStatusReturnsErrNotRunningFromSentinel(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.Status(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}

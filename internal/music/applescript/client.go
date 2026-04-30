@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 )
 
@@ -37,6 +38,19 @@ func (c *Client) IsRunning(ctx context.Context) (bool, error) {
 func (c *Client) Launch(ctx context.Context) error {
 	_, err := c.run(ctx, scriptLaunch)
 	return err
+}
+
+func (c *Client) Status(ctx context.Context) (domain.NowPlaying, error) {
+	out, err := c.run(ctx, scriptStatus)
+	if err != nil {
+		return domain.NowPlaying{}, err
+	}
+	np, err := parseStatus(string(out))
+	if err != nil {
+		return domain.NowPlaying{}, err
+	}
+	np.LastSyncedAt = time.Now()
+	return np, nil
 }
 
 // run wraps the runner with a per-call timeout and converts runner errors
