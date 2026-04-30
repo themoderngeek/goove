@@ -5,6 +5,7 @@ package applescript
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/themoderngeek/goove/internal/music"
@@ -109,3 +110,52 @@ func TestStatusReturnsErrNotRunningFromSentinel(t *testing.T) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
 	}
 }
+
+func TestPlayPauseRunsPlayPauseScript(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	if err := c.PlayPause(context.Background()); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if r.script != scriptPlayPause {
+		t.Errorf("ran %q; want scriptPlayPause", r.script)
+	}
+}
+
+func TestNextAndPrevRunRespectiveScripts(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	c.Next(context.Background())
+	if r.script != scriptNext {
+		t.Errorf("after Next: ran %q; want scriptNext", r.script)
+	}
+	c.Prev(context.Background())
+	if r.script != scriptPrev {
+		t.Errorf("after Prev: ran %q; want scriptPrev", r.script)
+	}
+}
+
+func TestSetVolumeFormatsScriptWithPercent(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	c.SetVolume(context.Background(), 73)
+	want := `tell application "Music" to set sound volume to 73`
+	if r.script != want {
+		t.Errorf("ran %q; want %q", r.script, want)
+	}
+}
+
+func TestSetVolumeClampsToZeroAndHundred(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	c.SetVolume(context.Background(), 150)
+	if !contains(r.script, "to 100") {
+		t.Errorf("over-100 should clamp; ran %q", r.script)
+	}
+	c.SetVolume(context.Background(), -5)
+	if !contains(r.script, "to 0") {
+		t.Errorf("under-0 should clamp; ran %q", r.script)
+	}
+}
+
+func contains(s, sub string) bool { return strings.Contains(s, sub) }
