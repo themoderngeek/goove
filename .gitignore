@@ -33,3 +33,6 @@ go.work.sum
 
 # Brainstorming visual companion (mockups + state)
 .superpowers/
+
+# goove built binary
+/goove
