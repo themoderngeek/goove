@@ -20,6 +20,6 @@ type Client interface {
 var (
 	ErrNotRunning  = errors.New("music: app not running")
 	ErrNoTrack     = errors.New("music: no track loaded")
-	ErrUnavailable = errors.New("music: applescript call failed")
+	ErrUnavailable = errors.New("music: backend call failed")
 	ErrPermission  = errors.New("music: automation permission denied")
 )
