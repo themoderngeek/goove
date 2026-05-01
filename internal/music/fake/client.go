@@ -20,7 +20,9 @@ type Client struct {
 	position  time.Duration
 	playing   bool
 	volume    int
-	forcedErr error
+	forcedErr  error
+	artwork    []byte
+	artworkErr error
 
 	// Counters useful for assertions.
 	PlayPauseCalls int
@@ -48,6 +50,37 @@ func (c *Client) SimulateError(err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.forcedErr = err
+}
+
+// SetArtwork supplies bytes the next Artwork() call will return.
+func (c *Client) SetArtwork(bytes []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.artwork = bytes
+}
+
+// SetArtworkErr forces Artwork() to return the given error, regardless of
+// whether bytes have been set. Use SetArtworkErr(nil) to clear.
+func (c *Client) SetArtworkErr(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.artworkErr = err
+}
+
+// Artwork implements music.Client.
+func (c *Client) Artwork(ctx context.Context) ([]byte, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return nil, c.forcedErr
+	}
+	if c.artworkErr != nil {
+		return nil, c.artworkErr
+	}
+	if c.artwork == nil {
+		return nil, music.ErrNoArtwork
+	}
+	return c.artwork, nil
 }
 
 func (c *Client) IsRunning(ctx context.Context) (bool, error) {

@@ -110,3 +110,55 @@ func TestSimulateError(t *testing.T) {
 		t.Fatalf("expected ErrPermission, got %v", err)
 	}
 }
+
+func TestArtworkAfterSetReturnsBytes(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	want := []byte{0x89, 0x50, 0x4e, 0x47} // PNG header bytes
+	c.SetArtwork(want)
+
+	got, err := c.Artwork(context.Background())
+	if err != nil {
+		t.Fatalf("Artwork err = %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("got = %v; want %v", got, want)
+	}
+}
+
+func TestArtworkWithoutSetReturnsErrNoArtwork(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+
+	_, err := c.Artwork(context.Background())
+	if !errors.Is(err, music.ErrNoArtwork) {
+		t.Fatalf("err = %v; want ErrNoArtwork", err)
+	}
+}
+
+func TestArtworkErrOverridesArtwork(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	c.SetArtwork([]byte{0x89, 0x50})
+	c.SetArtworkErr(music.ErrPermission)
+
+	_, err := c.Artwork(context.Background())
+	if !errors.Is(err, music.ErrPermission) {
+		t.Fatalf("err = %v; want ErrPermission", err)
+	}
+}
+
+func TestArtworkRespectsForcedErr(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetArtwork([]byte{0x89})
+	c.SimulateError(music.ErrUnavailable)
+
+	_, err := c.Artwork(context.Background())
+	if !errors.Is(err, music.ErrUnavailable) {
+		t.Fatalf("err = %v; want ErrUnavailable", err)
+	}
+}
