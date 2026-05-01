@@ -16,6 +16,8 @@ const (
 	compactThreshold = 50
 )
 
+const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   q: quit"
+
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
 	subtitleStyle = lipgloss.NewStyle().Faint(true)
@@ -35,14 +37,19 @@ func (m Model) View() string {
 	}
 	switch s := m.state.(type) {
 	case Connected:
-		card := renderConnected(s, m.errFooter())
 		if m.width >= artLayoutThreshold &&
 			m.art.output != "" &&
 			m.art.key == trackKey(s.Now.Track) {
-			composite := lipgloss.JoinHorizontal(lipgloss.Center, m.art.output, "  ", card)
-			return lipgloss.NewStyle().Margin(1, 2).Render(composite)
+			cardOnly := renderConnectedCard(s)
+			composite := lipgloss.JoinHorizontal(lipgloss.Center, m.art.output, "  ", cardOnly)
+			keybinds := footerStyle.Render(connectedKeybindsText)
+			out := composite + "\n" + keybinds
+			if errFooter := m.errFooter(); errFooter != "" {
+				out += "\n" + errFooter
+			}
+			return lipgloss.NewStyle().Margin(0, 2).Render(out)
 		}
-		return card
+		return renderConnected(s, m.errFooter())
 	case Idle:
 		return renderIdle(s.Volume, m.errFooter())
 	case Disconnected:
@@ -58,7 +65,10 @@ func (m Model) errFooter() string {
 	return errorStyle.Render("error: " + m.lastError.Error())
 }
 
-func renderConnected(s Connected, footer string) string {
+// renderConnectedCard returns just the rounded-border card box for the
+// Connected state — no keybinds, no error footer. Used by View for the
+// art+card composite layout where the keybinds need to span full-width.
+func renderConnectedCard(s Connected) string {
 	pos := s.Now.DisplayedPosition(time.Now())
 	var b strings.Builder
 
@@ -83,8 +93,12 @@ func renderConnected(s Connected, footer string) string {
 	b.WriteString(volumeBar(s.Now.Volume, volumeBarWidth))
 	b.WriteString(fmt.Sprintf("   %d%%", s.Now.Volume))
 
-	card := cardStyle.Render(b.String())
-	keybinds := footerStyle.Render(" space: play/pause   n: next   p: prev   +/-: vol   q: quit")
+	return cardStyle.Render(b.String())
+}
+
+func renderConnected(s Connected, footer string) string {
+	card := renderConnectedCard(s)
+	keybinds := footerStyle.Render(connectedKeybindsText)
 
 	out := card + "\n" + keybinds
 	if footer != "" {
