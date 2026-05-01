@@ -269,3 +269,22 @@ func TestWindowSizeMsgUpdatesDimensions(t *testing.T) {
 		t.Fatalf("width/height = %d/%d", got.width, got.height)
 	}
 }
+
+func TestFormatDuration(t *testing.T) {
+	cases := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "0:00"},
+		{59 * time.Second, "0:59"},
+		{60 * time.Second, "1:00"},
+		{3*time.Minute + 42*time.Second, "3:42"},
+		{8*time.Minute + 2*time.Second, "8:02"},
+		{-5 * time.Second, "0:00"},
+	}
+	for _, tc := range cases {
+		if got := formatDuration(tc.in); got != tc.want {
+			t.Errorf("formatDuration(%v) = %q; want %q", tc.in, got, tc.want)
+		}
+	}
+}
