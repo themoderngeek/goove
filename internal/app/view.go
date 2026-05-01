@@ -40,11 +40,9 @@ func (m Model) View() string {
 		if m.width >= artLayoutThreshold &&
 			m.art.output != "" &&
 			m.art.key == trackKey(s.Now.Track) {
-			cardOnly := renderConnectedCard(s)
-			artBlock := lipgloss.NewStyle().PaddingTop(1).Render(m.art.output)
-			composite := lipgloss.JoinHorizontal(lipgloss.Center, artBlock, "  ", cardOnly)
+			card := renderConnectedCard(s, m.art.output)
 			keybinds := footerStyle.Render(connectedKeybindsText)
-			out := composite + "\n" + keybinds
+			out := card + "\n" + keybinds
 			if errFooter := m.errFooter(); errFooter != "" {
 				out += "\n" + errFooter
 			}
@@ -66,10 +64,11 @@ func (m Model) errFooter() string {
 	return errorStyle.Render("error: " + m.lastError.Error())
 }
 
-// renderConnectedCard returns just the rounded-border card box for the
-// Connected state — no keybinds, no error footer. Used by View for the
-// art+card composite layout where the keybinds need to span full-width.
-func renderConnectedCard(s Connected) string {
+// renderConnectedCard returns the rounded-border card box for the Connected state.
+// If art is non-empty, it is composed beside the track-info content INSIDE the
+// card border via lipgloss.JoinHorizontal. If art is empty, the card contains
+// only the track-info content (no leading whitespace, no separator).
+func renderConnectedCard(s Connected, art string) string {
 	pos := s.Now.DisplayedPosition(time.Now())
 	var b strings.Builder
 
@@ -94,11 +93,15 @@ func renderConnectedCard(s Connected) string {
 	b.WriteString(volumeBar(s.Now.Volume, volumeBarWidth))
 	b.WriteString(fmt.Sprintf("   %d%%", s.Now.Volume))
 
-	return cardStyle.Render(b.String())
+	content := b.String()
+	if art != "" {
+		content = lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", content)
+	}
+	return cardStyle.Render(content)
 }
 
 func renderConnected(s Connected, footer string) string {
-	card := renderConnectedCard(s)
+	card := renderConnectedCard(s, "")
 	keybinds := footerStyle.Render(connectedKeybindsText)
 
 	out := card + "\n" + keybinds
