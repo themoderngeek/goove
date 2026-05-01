@@ -5,6 +5,8 @@ package applescript
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -176,6 +178,66 @@ func TestSetVolumeClampsToZeroAndHundred(t *testing.T) {
 }
 
 func contains(s, sub string) bool { return strings.Contains(s, sub) }
+
+func TestArtworkOnNotRunningReturnsErrNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.Artwork(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestArtworkOnNoArtSentinelReturnsErrNoArtwork(t *testing.T) {
+	r := &fakeRunner{out: []byte("NO_ART\n")}
+	c := New(r)
+	_, err := c.Artwork(context.Background())
+	if !errors.Is(err, music.ErrNoArtwork) {
+		t.Fatalf("err = %v; want ErrNoArtwork", err)
+	}
+}
+
+func TestArtworkOnOKReturnsCacheFileBytes(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+
+	// Resolve the cache path the same way Client.Artwork does so we can
+	// pre-populate the file the runner will then "claim" to have written.
+	cachePath, err := artworkCachePath()
+	if err != nil {
+		t.Fatalf("artworkCachePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	want := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xde, 0xad}
+	if err := os.WriteFile(cachePath, want, 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	defer os.Remove(cachePath)
+
+	got, err := c.Artwork(context.Background())
+	if err != nil {
+		t.Fatalf("Artwork err = %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("got = %x; want %x", got, want)
+	}
+}
+
+func TestArtworkRunsScriptWithCachePath(t *testing.T) {
+	r := &fakeRunner{out: []byte("NO_ART\n")}
+	c := New(r)
+	c.Artwork(context.Background())
+
+	cachePath, _ := artworkCachePath()
+	if !strings.Contains(r.script, cachePath) {
+		t.Errorf("script did not contain cache path %q; script = %q", cachePath, r.script)
+	}
+	if !strings.Contains(r.script, "raw data of") {
+		t.Errorf("script did not use 'raw data of'; script = %q", r.script)
+	}
+}
 
 func TestRunnerErrorWithUnrelatedStderrMapsToErrUnavailable(t *testing.T) {
 	r := &fakeRunner{
