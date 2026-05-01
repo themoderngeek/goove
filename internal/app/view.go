@@ -120,8 +120,42 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
-// Stubs replaced in later tasks.
-func renderIdle(volume int, footer string) string { return "" }
-func renderDisconnected(footer string) string     { return "" }
-func renderPermissionDenied() string              { return "" }
-func renderCompact(m Model) string                { return "" }
+func renderIdle(volume int, footer string) string {
+	body := titleStyle.Render("Music is open, nothing playing.") + "\n\n" +
+		subtitleStyle.Render("press space or n to start playback") + "\n\n" +
+		"volume  " + volumeBar(volume, volumeBarWidth) + fmt.Sprintf("   %d%%", volume)
+	card := cardStyle.Render(body)
+	keybinds := footerStyle.Render(" space: play/pause   n: next   +/-: vol   q: quit")
+	out := card + "\n" + keybinds
+	if footer != "" {
+		out += "\n" + footer
+	}
+	return out
+}
+
+func renderDisconnected(footer string) string {
+	body := titleStyle.Render("Apple Music isn't running.") + "\n\n" +
+		subtitleStyle.Render("press space to launch it, q to quit")
+	card := cardStyle.Render(body)
+	out := card
+	if footer != "" {
+		out += "\n" + footer
+	}
+	return out
+}
+
+func renderPermissionDenied() string {
+	body := titleStyle.Render("Apple Music has blocked goove from controlling it.") + "\n\n" +
+		subtitleStyle.Render(
+			"  Open  System Settings → Privacy & Security → Automation\n"+
+				"  Find  goove (or your terminal app)\n"+
+				"  Toggle on  Music\n\n"+
+				"  Then quit and re-run goove.",
+		)
+	card := cardStyle.Render(body)
+	keybinds := footerStyle.Render(" q: quit")
+	return card + "\n" + keybinds
+}
+
+// Stub replaced in Task 21.
+func renderCompact(m Model) string { return "" }
