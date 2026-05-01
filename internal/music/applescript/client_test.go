@@ -15,12 +15,16 @@ import (
 type fakeRunner struct {
 	script string
 	out    []byte
+	stderr []byte
 	err    error
 }
 
 func (f *fakeRunner) Run(ctx context.Context, script string) ([]byte, error) {
 	f.script = script
-	return f.out, f.err
+	if f.err != nil {
+		return f.out, &runnerErr{err: f.err, stderr: f.stderr}
+	}
+	return f.out, nil
 }
 
 func TestIsRunningReturnsTrue(t *testing.T) {
@@ -74,6 +78,19 @@ func TestRunnerErrorBecomesErrUnavailable(t *testing.T) {
 	}
 	if !errors.Is(err, music.ErrUnavailable) {
 		t.Fatalf("err = %v; want wrapping music.ErrUnavailable", err)
+	}
+}
+
+func TestRunnerPermissionStderrMapsToErrPermission(t *testing.T) {
+	r := &fakeRunner{
+		err:    errors.New("exit status 1"),
+		stderr: []byte("execution error: Not authorized to send Apple events to Music. (-1743)\n"),
+	}
+	c := New(r)
+
+	_, err := c.IsRunning(context.Background())
+	if !errors.Is(err, music.ErrPermission) {
+		t.Fatalf("err = %v; want ErrPermission", err)
 	}
 }
 

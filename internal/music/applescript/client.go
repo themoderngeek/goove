@@ -3,6 +3,7 @@
 package applescript
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -59,10 +60,15 @@ func (c *Client) run(ctx context.Context, script string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	out, err := c.runner.Run(ctx, script)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", music.ErrUnavailable, err)
+	if err == nil {
+		return out, nil
 	}
-	return out, nil
+	if rErr, ok := err.(*runnerErr); ok {
+		if bytes.Contains(rErr.stderr, []byte("-1743")) {
+			return nil, fmt.Errorf("%w: %v", music.ErrPermission, err)
+		}
+	}
+	return nil, fmt.Errorf("%w: %v", music.ErrUnavailable, err)
 }
 
 func (c *Client) PlayPause(ctx context.Context) error {
