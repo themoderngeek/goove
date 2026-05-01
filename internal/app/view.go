@@ -157,5 +157,25 @@ func renderPermissionDenied() string {
 	return card + "\n" + keybinds
 }
 
-// Stub replaced in Task 21.
-func renderCompact(m Model) string { return "" }
+func renderCompact(m Model) string {
+	switch s := m.state.(type) {
+	case Connected:
+		state := "▶"
+		if !s.Now.IsPlaying {
+			state = "⏸"
+		}
+		line := fmt.Sprintf("%s %s — %s   vol %d%%",
+			state, s.Now.Track.Title, s.Now.Track.Artist, s.Now.Volume)
+		footer := footerStyle.Render("space n p +/- q")
+		out := line + "\n" + footer
+		if e := m.errFooter(); e != "" {
+			out += "\n" + e
+		}
+		return out
+	case Idle:
+		return "Music idle.   space:play  q:quit\n"
+	case Disconnected:
+		return "Music not running.   space:launch  q:quit\n"
+	}
+	return ""
+}
