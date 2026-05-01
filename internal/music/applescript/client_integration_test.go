@@ -3,7 +3,11 @@
 package applescript
 
 import (
+	stdbytes "bytes"
 	"context"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"testing"
 	"time"
 )
@@ -52,4 +56,40 @@ func TestIntegrationStatus(t *testing.T) {
 	}
 	t.Logf("Now playing: %q by %q on %q (%v / %v)",
 		np.Track.Title, np.Track.Artist, np.Track.Album, np.Position, np.Duration)
+}
+
+func TestIntegrationArtwork(t *testing.T) {
+	c := NewDefault()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	running, err := c.IsRunning(ctx)
+	if err != nil {
+		t.Fatalf("IsRunning err = %v", err)
+	}
+	if !running {
+		t.Skip("Music.app is not running; cannot exercise Artwork")
+	}
+
+	// Verify a track is loaded; otherwise skip — Artwork has nothing to fetch.
+	if _, err := c.Status(ctx); err != nil {
+		t.Skipf("Status returned %v; Artwork test needs a loaded track", err)
+	}
+
+	bytes, err := c.Artwork(ctx)
+	if err != nil {
+		// ErrNoArtwork is acceptable — current track may be a stream without art.
+		t.Logf("Artwork returned %v (acceptable if track has no artwork)", err)
+		return
+	}
+	if len(bytes) == 0 {
+		t.Fatal("Artwork returned zero bytes with no error")
+	}
+
+	// Decode just the header to confirm it's a real image.
+	cfg, format, err := image.DecodeConfig(stdbytes.NewReader(bytes))
+	if err != nil {
+		t.Fatalf("artwork bytes are not a decodable image: %v", err)
+	}
+	t.Logf("Artwork: %d bytes, format=%s, %dx%d", len(bytes), format, cfg.Width, cfg.Height)
 }

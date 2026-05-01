@@ -24,3 +24,12 @@ type actionDoneMsg struct{ err error }
 // clearErrorMsg fires once a few seconds after lastError is set,
 // so the error footer dissolves on its own.
 type clearErrorMsg struct{}
+
+// artworkMsg is the result of a fetchArtwork Cmd. The `key` is the track
+// identity it was requested for — used to discard stale results when the
+// user has skipped to a different track during the fetch.
+type artworkMsg struct {
+	key    string
+	output string
+	err    error
+}

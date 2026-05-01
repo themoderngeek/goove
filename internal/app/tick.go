@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/themoderngeek/goove/internal/art"
 	"github.com/themoderngeek/goove/internal/music"
 )
 
@@ -44,4 +45,24 @@ func doAction(action func(context.Context) error) tea.Cmd {
 // clearErrorAfter emits a clearErrorMsg once errorVisibleFor has elapsed.
 func clearErrorAfter() tea.Cmd {
 	return tea.Tick(errorVisibleFor, func(time.Time) tea.Msg { return clearErrorMsg{} })
+}
+
+const (
+	artWidth           = 20
+	artHeight          = 10
+	artLayoutThreshold = 70  // terminal width below which side-by-side layout is suppressed
+)
+
+// fetchArtwork pipelines bytes from the music client through the art renderer.
+// Stale guard happens at the message handler — this Cmd just produces a result
+// tagged with the requested key.
+func fetchArtwork(client music.Client, renderer art.Renderer, key string) tea.Cmd {
+	return func() tea.Msg {
+		bytes, err := client.Artwork(context.Background())
+		if err != nil {
+			return artworkMsg{key: key, err: err}
+		}
+		out, err := renderer.Render(context.Background(), bytes, artWidth, artHeight)
+		return artworkMsg{key: key, output: out, err: err}
+	}
 }

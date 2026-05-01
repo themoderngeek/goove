@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/themoderngeek/goove/internal/art"
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 	"github.com/themoderngeek/goove/internal/music/fake"
@@ -14,7 +16,7 @@ import (
 
 func newTestModel() Model {
 	c := fake.New()
-	return New(c)
+	return New(c, nil) // nil renderer = album art disabled in tests
 }
 
 func TestStatusMsgWithSuccessTransitionsToConnected(t *testing.T) {
@@ -85,7 +87,7 @@ func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	// Sync model to Connected state so space triggers PlayPause, not Launch.
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50, IsPlaying: false}
@@ -109,7 +111,7 @@ func TestNKeyTriggersNext(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	if cmd == nil {
@@ -125,7 +127,7 @@ func TestPKeyTriggersPrev(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	cmd()
 	if c.PrevCalls != 1 {
@@ -137,7 +139,7 @@ func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	// Sync once to populate Connected state with volume=50 (fake default).
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50, IsPlaying: false}
@@ -167,7 +169,7 @@ func TestVolumeDownClampsAtZero(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 	m.lastVolume = 3
 	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Volume: 3, Track: domain.Track{Title: "T"}}})
 	m = tmp.(Model)
@@ -193,7 +195,7 @@ func TestQKeyEmitsQuit(t *testing.T) {
 
 func TestSpaceWhileDisconnectedTriggersLaunch(t *testing.T) {
 	c := fake.New()
-	m := New(c) // state=Disconnected
+	m := New(c, nil) // state=Disconnected
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if cmd == nil {
 		t.Fatal("expected a Cmd")
@@ -208,7 +210,7 @@ func TestActionDoneFiresStatusRefresh(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(actionDoneMsg{})
 	if cmd == nil {
@@ -222,7 +224,7 @@ func TestActionDoneFiresStatusRefresh(t *testing.T) {
 
 func TestActionDoneWithErrorSetsLastError(t *testing.T) {
 	c := fake.New()
-	m := New(c)
+	m := New(c, nil)
 	updated, _ := m.Update(actionDoneMsg{err: errors.New("boom")})
 	got := updated.(Model)
 	if got.lastError == nil {
@@ -234,7 +236,7 @@ func TestTickMsgFiresStatusFetchAndReschedules(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 5, true)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(tickMsg{now: time.Now()})
 	if cmd == nil {
@@ -286,5 +288,195 @@ func TestFormatDuration(t *testing.T) {
 		if got := formatDuration(tc.in); got != tc.want {
 			t.Errorf("formatDuration(%v) = %q; want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestTrackKeyReturnsEmptyForZeroTrack(t *testing.T) {
+	if got := trackKey(domain.Track{}); got != "" {
+		t.Errorf("trackKey(zero) = %q; want empty", got)
+	}
+}
+
+func TestTrackKeyJoinsFields(t *testing.T) {
+	got := trackKey(domain.Track{Title: "T", Artist: "A", Album: "B"})
+	want := "T|A|B"
+	if got != want {
+		t.Errorf("trackKey = %q; want %q", got, want)
+	}
+}
+
+func TestTrackKeyHandlesPartialFields(t *testing.T) {
+	// Real Music.app tracks may have empty Album. Single non-empty field is
+	// enough to constitute "a real track" — only all-empty returns "".
+	got := trackKey(domain.Track{Title: "T"})
+	if got == "" {
+		t.Errorf("trackKey(title-only) = %q; want non-empty", got)
+	}
+}
+
+func TestCurrentArtKeyReturnsEmptyOutsideConnected(t *testing.T) {
+	m := newTestModel()
+	// Default state is Disconnected{}.
+	if got := m.currentArtKey(); got != "" {
+		t.Errorf("currentArtKey on Disconnected = %q; want empty", got)
+	}
+	m.state = Idle{Volume: 50}
+	if got := m.currentArtKey(); got != "" {
+		t.Errorf("currentArtKey on Idle = %q; want empty", got)
+	}
+}
+
+func TestCurrentArtKeyMatchesTrackInConnected(t *testing.T) {
+	m := newTestModel()
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}}}
+	if got := m.currentArtKey(); got != "T|A|B" {
+		t.Errorf("currentArtKey = %q; want T|A|B", got)
+	}
+}
+
+// stubRenderer is an art.Renderer that returns a fixed string. Used to verify
+// fetchArtwork was invoked and to inspect what came out the other side.
+type stubRenderer struct{ out string }
+
+func (s stubRenderer) Render(ctx context.Context, image []byte, w, h int) (string, error) {
+	return s.out, nil
+}
+
+// compile-time interface check
+var _ art.Renderer = stubRenderer{}
+
+func TestStatusMsgWithNewTrackFiresFetchArtwork(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T", Artist: "A", Album: "B"}, 100, 0, true)
+	c.SetArtwork([]byte("PNGBYTES"))
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}, IsPlaying: true}
+	updated, cmd := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.key != "T|A|B" {
+		t.Errorf("art.key = %q; want T|A|B", got.art.key)
+	}
+	if !got.art.fetching {
+		t.Error("art.fetching = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected a fetchArtwork Cmd")
+	}
+}
+
+func TestStatusMsgWithSameTrackDoesNotRefireFetchArtwork(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	c.SetArtwork([]byte("PNGBYTES"))
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	// Pre-seed the art slot with the same key, simulating a previous fetch landing.
+	m.art = artState{key: "T||", output: "ANSI", fetching: false}
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	// art slot must be unchanged — same key, no new fetch.
+	if got.art.key != "T||" {
+		t.Errorf("art.key changed unexpectedly to %q", got.art.key)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; expected no new fetch")
+	}
+}
+
+func TestStatusMsgFiresNothingWhenRendererNil(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	m := New(c, nil) // no renderer ⇒ no art fetches ever
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.key != "" {
+		t.Errorf("art.key = %q; want empty (renderer nil)", got.art.key)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; want false (renderer nil)")
+	}
+}
+
+func TestStatusMsgWithEmptyTrackDoesNotFireFetchArtwork(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	// statusMsg with all-zero Track (e.g. transitional)
+	np := domain.NowPlaying{Track: domain.Track{}}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.fetching {
+		t.Error("art.fetching = true; want false (empty track)")
+	}
+}
+
+func TestArtworkMsgStoresOutputForCurrentTrack(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}}}
+	m.art = artState{key: "T|A|B", fetching: true}
+
+	updated, _ := m.Update(artworkMsg{key: "T|A|B", output: "ANSI"})
+	got := updated.(Model)
+
+	if got.art.output != "ANSI" {
+		t.Errorf("art.output = %q; want ANSI", got.art.output)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; want cleared")
+	}
+}
+
+func TestArtworkMsgWithStaleKeyDiscarded(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "C"}}}
+	m.art = artState{key: "C||", fetching: true}
+
+	// Stale message from an older fetch on track A
+	updated, _ := m.Update(artworkMsg{key: "A||", output: "STALE"})
+	got := updated.(Model)
+
+	// art slot must be unchanged
+	if got.art.key != "C||" {
+		t.Errorf("art.key changed to %q", got.art.key)
+	}
+	if got.art.output != "" {
+		t.Errorf("art.output = %q; want empty (stale ignored)", got.art.output)
+	}
+	if !got.art.fetching {
+		t.Error("art.fetching cleared by stale message; want still in flight")
+	}
+}
+
+func TestArtworkMsgWithErrorClearsFetchingButLeavesOutputEmpty(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
+	m.art = artState{key: "T||", fetching: true}
+
+	updated, _ := m.Update(artworkMsg{key: "T||", err: music.ErrNoArtwork})
+	got := updated.(Model)
+
+	if got.art.fetching {
+		t.Error("art.fetching = true; want cleared after error")
+	}
+	if got.art.output != "" {
+		t.Errorf("art.output = %q; want empty after error", got.art.output)
+	}
+	if got.art.key != "T||" {
+		t.Errorf("art.key = %q; want preserved as T||", got.art.key)
 	}
 }

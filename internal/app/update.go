@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,6 +35,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
+	case artworkMsg:
+		currentKey := m.currentArtKey()
+		if msg.key != currentKey {
+			// Stale: a fetch we requested for an earlier track landed after the
+			// user skipped to a different track. Discard silently — the new
+			// track's status tick will trigger its own fetch.
+			return m, nil
+		}
+		if msg.err != nil {
+			slog.Debug("artwork unavailable", "track", msg.key, "err", msg.err)
+		}
+		m.art = artState{
+			key:    msg.key,
+			output: msg.output, // "" on any error path → View shows no-art layout
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -56,6 +73,17 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	}
 	m.state = Connected{Now: msg.now}
 	m.lastVolume = msg.now.Volume
+
+	// Track-change detection: fire a single fetchArtwork Cmd when:
+	//   - we have a renderer (chafa is available),
+	//   - the new track has a real identity (non-empty key),
+	//   - the cache is for a different track,
+	//   - no fetch is already in flight.
+	newKey := trackKey(msg.now.Track)
+	if m.renderer != nil && newKey != "" && newKey != m.art.key && !m.art.fetching {
+		m.art = artState{key: newKey, fetching: true}
+		return m, fetchArtwork(m.client, m.renderer, newKey)
+	}
 	return m, nil
 }
 

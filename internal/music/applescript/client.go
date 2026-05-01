@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -95,6 +97,48 @@ func (c *Client) SetVolume(ctx context.Context, percent int) error {
 	}
 	_, err := c.run(ctx, fmt.Sprintf(scriptSetVolume, percent))
 	return err
+}
+
+// artworkCachePath returns the fixed path where scriptArtwork writes the
+// current track's image bytes. The directory is created on demand by Artwork().
+func artworkCachePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "Library", "Caches", "goove", "artwork.bin"), nil
+}
+
+// Artwork fetches the current track's embedded artwork bytes via AppleScript.
+// Returns ErrNotRunning if Music isn't running, ErrNoArtwork if the track has
+// no artwork, or wrapped ErrUnavailable / ErrPermission for other failures.
+func (c *Client) Artwork(ctx context.Context) ([]byte, error) {
+	cachePath, err := artworkCachePath()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", music.ErrUnavailable, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+		return nil, fmt.Errorf("%w: %v", music.ErrUnavailable, err)
+	}
+
+	out, err := c.run(ctx, fmt.Sprintf(scriptArtwork, cachePath))
+	if err != nil {
+		return nil, err // already wrapped (ErrUnavailable or ErrPermission)
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "NOT_RUNNING":
+		return nil, music.ErrNotRunning
+	case "NO_ART":
+		return nil, music.ErrNoArtwork
+	case "OK":
+		data, err := os.ReadFile(cachePath)
+		if err != nil {
+			return nil, fmt.Errorf("%w: read cache: %v", music.ErrUnavailable, err)
+		}
+		return data, nil
+	default:
+		return nil, fmt.Errorf("%w: unexpected scriptArtwork output: %q", music.ErrUnavailable, out)
+	}
 }
 
 // Compile-time check that *Client implements music.Client.

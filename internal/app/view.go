@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/themoderngeek/goove/internal/domain"
 )
 
 const (
@@ -13,6 +15,8 @@ const (
 	volumeBarWidth   = 10
 	compactThreshold = 50
 )
+
+const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   q: quit"
 
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
@@ -33,6 +37,19 @@ func (m Model) View() string {
 	}
 	switch s := m.state.(type) {
 	case Connected:
+		if m.width >= artLayoutThreshold &&
+			m.art.output != "" &&
+			m.art.key == trackKey(s.Now.Track) {
+			cardOnly := renderConnectedCard(s)
+			artBlock := lipgloss.NewStyle().PaddingTop(1).Render(m.art.output)
+			composite := lipgloss.JoinHorizontal(lipgloss.Center, artBlock, "  ", cardOnly)
+			keybinds := footerStyle.Render(connectedKeybindsText)
+			out := composite + "\n" + keybinds
+			if errFooter := m.errFooter(); errFooter != "" {
+				out += "\n" + errFooter
+			}
+			return lipgloss.NewStyle().Margin(0, 2).Render(out)
+		}
 		return renderConnected(s, m.errFooter())
 	case Idle:
 		return renderIdle(s.Volume, m.errFooter())
@@ -49,7 +66,10 @@ func (m Model) errFooter() string {
 	return errorStyle.Render("error: " + m.lastError.Error())
 }
 
-func renderConnected(s Connected, footer string) string {
+// renderConnectedCard returns just the rounded-border card box for the
+// Connected state — no keybinds, no error footer. Used by View for the
+// art+card composite layout where the keybinds need to span full-width.
+func renderConnectedCard(s Connected) string {
 	pos := s.Now.DisplayedPosition(time.Now())
 	var b strings.Builder
 
@@ -74,8 +94,12 @@ func renderConnected(s Connected, footer string) string {
 	b.WriteString(volumeBar(s.Now.Volume, volumeBarWidth))
 	b.WriteString(fmt.Sprintf("   %d%%", s.Now.Volume))
 
-	card := cardStyle.Render(b.String())
-	keybinds := footerStyle.Render(" space: play/pause   n: next   p: prev   +/-: vol   q: quit")
+	return cardStyle.Render(b.String())
+}
+
+func renderConnected(s Connected, footer string) string {
+	card := renderConnectedCard(s)
+	keybinds := footerStyle.Render(connectedKeybindsText)
 
 	out := card + "\n" + keybinds
 	if footer != "" {
@@ -176,6 +200,24 @@ func renderCompact(m Model) string {
 		return "Music idle.   space:play  q:quit\n"
 	case Disconnected:
 		return "Music not running.   space:launch  q:quit\n"
+	}
+	return ""
+}
+
+// trackKey returns a stable identity for a track for cache-keying purposes.
+// Returns "" for an all-zero Track so cache lookups against "no track loaded"
+// never accidentally match a real entry.
+func trackKey(t domain.Track) string {
+	if t.Title == "" && t.Artist == "" && t.Album == "" {
+		return ""
+	}
+	return t.Title + "|" + t.Artist + "|" + t.Album
+}
+
+// currentArtKey returns trackKey for the current Connected state, or "" otherwise.
+func (m Model) currentArtKey() string {
+	if c, ok := m.state.(Connected); ok {
+		return trackKey(c.Now.Track)
 	}
 	return ""
 }
