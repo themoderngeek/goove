@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -13,6 +14,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case statusMsg:
 		return m.handleStatus(msg)
+	case tea.KeyMsg:
+		return m.handleKey(msg)
 	}
 	return m, nil
 }
@@ -36,4 +39,57 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	m.state = Connected{Now: msg.now}
 	m.lastVolume = msg.now.Volume
 	return m, nil
+}
+
+func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.permissionDenied {
+		// Only quit works on the permission-denied screen.
+		if msg.String() == "q" {
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q":
+		return m, tea.Quit
+
+	case " ":
+		if _, ok := m.state.(Disconnected); ok {
+			return m, doAction(m.client.Launch)
+		}
+		return m, doAction(m.client.PlayPause)
+
+	case "n":
+		return m, doAction(m.client.Next)
+
+	case "p":
+		return m, doAction(m.client.Prev)
+
+	case "+", "=":
+		return m.applyVolumeDelta(+5)
+
+	case "-":
+		return m.applyVolumeDelta(-5)
+	}
+	return m, nil
+}
+
+func (m Model) applyVolumeDelta(delta int) (Model, tea.Cmd) {
+	target := m.lastVolume + delta
+	if target < 0 {
+		target = 0
+	}
+	if target > 100 {
+		target = 100
+	}
+	m.lastVolume = target
+	if conn, ok := m.state.(Connected); ok {
+		conn.Now.Volume = target
+		m.state = conn
+	}
+	client := m.client
+	return m, doAction(func(ctx context.Context) error {
+		return client.SetVolume(ctx, target)
+	})
 }
