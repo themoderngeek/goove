@@ -29,9 +29,7 @@ func scheduleRepaintTick() tea.Cmd {
 // fetchStatus runs Status() in a goroutine and emits a statusMsg with the result.
 func fetchStatus(client music.Client) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		np, err := client.Status(ctx)
+		np, err := client.Status(context.Background())
 		return statusMsg{now: np, err: err}
 	}
 }
@@ -39,9 +37,7 @@ func fetchStatus(client music.Client) tea.Cmd {
 // doAction wraps a Music transport command in a Cmd that emits actionDoneMsg.
 func doAction(action func(context.Context) error) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		return actionDoneMsg{err: action(ctx)}
+		return actionDoneMsg{err: action(context.Background())}
 	}
 }
 
