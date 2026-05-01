@@ -29,9 +29,9 @@ const scriptStatus = `tell application "Music"
 	set alb to (album of t) as text
 	set pos to (player position as text)
 	set dur to (duration of t as text)
-	set st to (player state as text)
+	set xstate to (player state as text)
 	set vol to (sound volume as text)
-	return ttl & linefeed & art & linefeed & alb & linefeed & pos & linefeed & dur & linefeed & st & linefeed & vol
+	return ttl & linefeed & art & linefeed & alb & linefeed & pos & linefeed & dur & linefeed & xstate & linefeed & vol
 end tell`
 
 const scriptPlayPause = `tell application "Music" to playpause`
