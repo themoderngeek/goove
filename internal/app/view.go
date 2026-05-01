@@ -35,7 +35,13 @@ func (m Model) View() string {
 	}
 	switch s := m.state.(type) {
 	case Connected:
-		return renderConnected(s, m.errFooter())
+		card := renderConnected(s, m.errFooter())
+		if m.width >= artLayoutThreshold &&
+			m.art.output != "" &&
+			m.art.key == trackKey(s.Now.Track) {
+			return lipgloss.JoinHorizontal(lipgloss.Top, m.art.output, "  ", card)
+		}
+		return card
 	case Idle:
 		return renderIdle(s.Volume, m.errFooter())
 	case Disconnected:
