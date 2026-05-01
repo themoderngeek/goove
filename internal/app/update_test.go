@@ -288,3 +288,46 @@ func TestFormatDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestTrackKeyReturnsEmptyForZeroTrack(t *testing.T) {
+	if got := trackKey(domain.Track{}); got != "" {
+		t.Errorf("trackKey(zero) = %q; want empty", got)
+	}
+}
+
+func TestTrackKeyJoinsFields(t *testing.T) {
+	got := trackKey(domain.Track{Title: "T", Artist: "A", Album: "B"})
+	want := "T|A|B"
+	if got != want {
+		t.Errorf("trackKey = %q; want %q", got, want)
+	}
+}
+
+func TestTrackKeyHandlesPartialFields(t *testing.T) {
+	// Real Music.app tracks may have empty Album. Single non-empty field is
+	// enough to constitute "a real track" — only all-empty returns "".
+	got := trackKey(domain.Track{Title: "T"})
+	if got == "" {
+		t.Errorf("trackKey(title-only) = %q; want non-empty", got)
+	}
+}
+
+func TestCurrentArtKeyReturnsEmptyOutsideConnected(t *testing.T) {
+	m := newTestModel()
+	// Default state is Disconnected{}.
+	if got := m.currentArtKey(); got != "" {
+		t.Errorf("currentArtKey on Disconnected = %q; want empty", got)
+	}
+	m.state = Idle{Volume: 50}
+	if got := m.currentArtKey(); got != "" {
+		t.Errorf("currentArtKey on Idle = %q; want empty", got)
+	}
+}
+
+func TestCurrentArtKeyMatchesTrackInConnected(t *testing.T) {
+	m := newTestModel()
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}}}
+	if got := m.currentArtKey(); got != "T|A|B" {
+		t.Errorf("currentArtKey = %q; want T|A|B", got)
+	}
+}

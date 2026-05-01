@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/themoderngeek/goove/internal/domain"
 )
 
 const (
@@ -176,6 +178,24 @@ func renderCompact(m Model) string {
 		return "Music idle.   space:play  q:quit\n"
 	case Disconnected:
 		return "Music not running.   space:launch  q:quit\n"
+	}
+	return ""
+}
+
+// trackKey returns a stable identity for a track for cache-keying purposes.
+// Returns "" for an all-zero Track so cache lookups against "no track loaded"
+// never accidentally match a real entry.
+func trackKey(t domain.Track) string {
+	if t.Title == "" && t.Artist == "" && t.Album == "" {
+		return ""
+	}
+	return t.Title + "|" + t.Artist + "|" + t.Album
+}
+
+// currentArtKey returns trackKey for the current Connected state, or "" otherwise.
+func (m Model) currentArtKey() string {
+	if c, ok := m.state.(Connected); ok {
+		return trackKey(c.Now.Track)
 	}
 	return ""
 }
