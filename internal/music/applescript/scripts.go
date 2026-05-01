@@ -41,3 +41,32 @@ const scriptPrev = `tell application "Music" to previous track`
 // scriptSetVolume must be formatted with the integer percent before use.
 // Use fmt.Sprintf(scriptSetVolume, 50).
 const scriptSetVolume = `tell application "Music" to set sound volume to %d`
+
+// scriptArtwork writes the current track's artwork bytes to the given
+// path (passed via fmt.Sprintf) and returns one of:
+//   - "NOT_RUNNING"  — Music isn't running
+//   - "NO_ART"       — current track has no embedded artwork
+//   - "OK"           — bytes written to %s
+// The "raw data of artwork" form returns direct PNG bytes on macOS 26;
+// validated against Music.app 26.4.1 (800x800 PNG).
+const scriptArtwork = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		set theArt to artwork 1 of current track
+	on error
+		return "NO_ART"
+	end try
+	set artData to (raw data of theArt)
+	set fileRef to open for access POSIX file "%s" with write permission
+	try
+		set eof of fileRef to 0
+		write artData to fileRef
+		close access fileRef
+	on error errMsg
+		try
+			close access fileRef
+		end try
+		error errMsg
+	end try
+	return "OK"
+end tell`
