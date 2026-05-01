@@ -15,6 +15,7 @@ type Client interface {
 	Next(ctx context.Context) error
 	Prev(ctx context.Context) error
 	SetVolume(ctx context.Context, percent int) error
+	Artwork(ctx context.Context) ([]byte, error)
 }
 
 var (
@@ -22,4 +23,5 @@ var (
 	ErrNoTrack     = errors.New("music: no track loaded")
 	ErrUnavailable = errors.New("music: backend call failed")
 	ErrPermission  = errors.New("music: automation permission denied")
+	ErrNoArtwork   = errors.New("music: track has no artwork")
 )
