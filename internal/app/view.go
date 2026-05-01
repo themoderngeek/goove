@@ -39,7 +39,8 @@ func (m Model) View() string {
 		if m.width >= artLayoutThreshold &&
 			m.art.output != "" &&
 			m.art.key == trackKey(s.Now.Track) {
-			return lipgloss.JoinHorizontal(lipgloss.Top, m.art.output, "  ", card)
+			composite := lipgloss.JoinHorizontal(lipgloss.Center, m.art.output, "  ", card)
+			return lipgloss.NewStyle().Margin(1, 2).Render(composite)
 		}
 		return card
 	case Idle:
