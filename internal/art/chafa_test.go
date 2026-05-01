@@ -69,3 +69,16 @@ func TestRenderEmptyImageStillReachesRunner(t *testing.T) {
 		t.Errorf("runner did not see the (empty) image")
 	}
 }
+
+func TestRenderContextCancellationPropagates(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // pre-cancel before calling Render
+
+	r := &fakeChafaRunner{err: ctx.Err()}
+	c := New(r)
+
+	_, err := c.Render(ctx, []byte("x"), 20, 10)
+	if err == nil {
+		t.Fatal("expected error from cancelled context")
+	}
+}
