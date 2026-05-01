@@ -41,7 +41,8 @@ func (m Model) View() string {
 			m.art.output != "" &&
 			m.art.key == trackKey(s.Now.Track) {
 			cardOnly := renderConnectedCard(s)
-			composite := lipgloss.JoinHorizontal(lipgloss.Center, m.art.output, "  ", cardOnly)
+			artBlock := lipgloss.NewStyle().PaddingTop(1).Render(m.art.output)
+			composite := lipgloss.JoinHorizontal(lipgloss.Center, artBlock, "  ", cardOnly)
 			keybinds := footerStyle.Render(connectedKeybindsText)
 			out := composite + "\n" + keybinds
 			if errFooter := m.errFooter(); errFooter != "" {
