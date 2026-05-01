@@ -176,3 +176,19 @@ func TestSetVolumeClampsToZeroAndHundred(t *testing.T) {
 }
 
 func contains(s, sub string) bool { return strings.Contains(s, sub) }
+
+func TestRunnerErrorWithUnrelatedStderrMapsToErrUnavailable(t *testing.T) {
+	r := &fakeRunner{
+		err:    errors.New("exit status 1"),
+		stderr: []byte("execution error: some other apple-events problem.\n"),
+	}
+	c := New(r)
+
+	_, err := c.IsRunning(context.Background())
+	if !errors.Is(err, music.ErrUnavailable) {
+		t.Fatalf("err = %v; want wrapping music.ErrUnavailable", err)
+	}
+	if errors.Is(err, music.ErrPermission) {
+		t.Fatalf("err = %v; should NOT match ErrPermission", err)
+	}
+}
