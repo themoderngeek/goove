@@ -203,3 +203,69 @@ func TestSpaceWhileDisconnectedTriggersLaunch(t *testing.T) {
 		t.Errorf("Launch calls = %d; want 1", c.LaunchCalls)
 	}
 }
+
+func TestActionDoneFiresStatusRefresh(t *testing.T) {
+	c := fake.New()
+	c.Launch(nil)
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	m := New(c)
+
+	_, cmd := m.Update(actionDoneMsg{})
+	if cmd == nil {
+		t.Fatal("expected a status-refresh Cmd")
+	}
+	out := cmd()
+	if _, ok := out.(statusMsg); !ok {
+		t.Fatalf("cmd returned %T; want statusMsg", out)
+	}
+}
+
+func TestActionDoneWithErrorSetsLastError(t *testing.T) {
+	c := fake.New()
+	m := New(c)
+	updated, _ := m.Update(actionDoneMsg{err: errors.New("boom")})
+	got := updated.(Model)
+	if got.lastError == nil {
+		t.Fatal("expected lastError set")
+	}
+}
+
+func TestTickMsgFiresStatusFetchAndReschedules(t *testing.T) {
+	c := fake.New()
+	c.Launch(nil)
+	c.SetTrack(domain.Track{Title: "T"}, 200, 5, true)
+	m := New(c)
+
+	_, cmd := m.Update(tickMsg{now: time.Now()})
+	if cmd == nil {
+		t.Fatal("expected a Cmd from tickMsg")
+	}
+	// We don't introspect the Batch contents — the existence of a Cmd
+	// is the contract. The status fetch is exercised by other tests.
+}
+
+func TestRepaintMsgReturnsRepaintTickCmd(t *testing.T) {
+	m := newTestModel()
+	_, cmd := m.Update(repaintMsg{})
+	if cmd == nil {
+		t.Fatal("expected a Cmd from repaintMsg")
+	}
+}
+
+func TestClearErrorMsgClearsLastError(t *testing.T) {
+	m := newTestModel()
+	m.lastError = errors.New("x")
+	updated, _ := m.Update(clearErrorMsg{})
+	if updated.(Model).lastError != nil {
+		t.Fatal("expected lastError cleared")
+	}
+}
+
+func TestWindowSizeMsgUpdatesDimensions(t *testing.T) {
+	m := newTestModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	got := updated.(Model)
+	if got.width != 80 || got.height != 24 {
+		t.Fatalf("width/height = %d/%d", got.width, got.height)
+	}
+}

@@ -16,6 +16,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStatus(msg)
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case tickMsg:
+		return m, tea.Batch(scheduleStatusTick(), fetchStatus(m.client))
+	case repaintMsg:
+		return m, scheduleRepaintTick()
+	case actionDoneMsg:
+		if msg.err != nil {
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, tea.Batch(fetchStatus(m.client), clearErrorAfter())
+		}
+		return m, fetchStatus(m.client)
+	case clearErrorMsg:
+		m.lastError = nil
+		return m, nil
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	}
 	return m, nil
 }
@@ -43,7 +61,6 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if m.permissionDenied {
-		// Only quit works on the permission-denied screen.
 		if msg.String() == "q" {
 			return m, tea.Quit
 		}
