@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,6 +34,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		return m, nil
+	case artworkMsg:
+		currentKey := m.currentArtKey()
+		if msg.key != currentKey {
+			// Stale: a fetch we requested for an earlier track landed after the
+			// user skipped to a different track. Discard silently — the new
+			// track's status tick will trigger its own fetch.
+			return m, nil
+		}
+		if msg.err != nil {
+			slog.Debug("artwork unavailable", "track", msg.key, "err", msg.err)
+		}
+		m.art = artState{
+			key:    msg.key,
+			output: msg.output, // "" on any error path → View shows no-art layout
+		}
 		return m, nil
 	}
 	return m, nil

@@ -421,3 +421,62 @@ func TestStatusMsgWithEmptyTrackDoesNotFireFetchArtwork(t *testing.T) {
 		t.Error("art.fetching = true; want false (empty track)")
 	}
 }
+
+func TestArtworkMsgStoresOutputForCurrentTrack(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}}}
+	m.art = artState{key: "T|A|B", fetching: true}
+
+	updated, _ := m.Update(artworkMsg{key: "T|A|B", output: "ANSI"})
+	got := updated.(Model)
+
+	if got.art.output != "ANSI" {
+		t.Errorf("art.output = %q; want ANSI", got.art.output)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; want cleared")
+	}
+}
+
+func TestArtworkMsgWithStaleKeyDiscarded(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "C"}}}
+	m.art = artState{key: "C||", fetching: true}
+
+	// Stale message from an older fetch on track A
+	updated, _ := m.Update(artworkMsg{key: "A||", output: "STALE"})
+	got := updated.(Model)
+
+	// art slot must be unchanged
+	if got.art.key != "C||" {
+		t.Errorf("art.key changed to %q", got.art.key)
+	}
+	if got.art.output != "" {
+		t.Errorf("art.output = %q; want empty (stale ignored)", got.art.output)
+	}
+	if !got.art.fetching {
+		t.Error("art.fetching cleared by stale message; want still in flight")
+	}
+}
+
+func TestArtworkMsgWithErrorClearsFetchingButLeavesOutputEmpty(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{})
+	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
+	m.art = artState{key: "T||", fetching: true}
+
+	updated, _ := m.Update(artworkMsg{key: "T||", err: music.ErrNoArtwork})
+	got := updated.(Model)
+
+	if got.art.fetching {
+		t.Error("art.fetching = true; want cleared after error")
+	}
+	if got.art.output != "" {
+		t.Errorf("art.output = %q; want empty after error", got.art.output)
+	}
+	if got.art.key != "T||" {
+		t.Errorf("art.key = %q; want preserved as T||", got.art.key)
+	}
+}
