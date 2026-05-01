@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/themoderngeek/goove/internal/art"
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 	"github.com/themoderngeek/goove/internal/music/fake"
@@ -329,5 +331,93 @@ func TestCurrentArtKeyMatchesTrackInConnected(t *testing.T) {
 	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}}}
 	if got := m.currentArtKey(); got != "T|A|B" {
 		t.Errorf("currentArtKey = %q; want T|A|B", got)
+	}
+}
+
+// stubRenderer is an art.Renderer that returns a fixed string. Used to verify
+// fetchArtwork was invoked and to inspect what came out the other side.
+type stubRenderer struct{ out string }
+
+func (s stubRenderer) Render(ctx context.Context, image []byte, w, h int) (string, error) {
+	return s.out, nil
+}
+
+// compile-time interface check
+var _ art.Renderer = stubRenderer{}
+
+func TestStatusMsgWithNewTrackFiresFetchArtwork(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T", Artist: "A", Album: "B"}, 100, 0, true)
+	c.SetArtwork([]byte("PNGBYTES"))
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T", Artist: "A", Album: "B"}, IsPlaying: true}
+	updated, cmd := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.key != "T|A|B" {
+		t.Errorf("art.key = %q; want T|A|B", got.art.key)
+	}
+	if !got.art.fetching {
+		t.Error("art.fetching = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected a fetchArtwork Cmd")
+	}
+}
+
+func TestStatusMsgWithSameTrackDoesNotRefireFetchArtwork(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	c.SetArtwork([]byte("PNGBYTES"))
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	// Pre-seed the art slot with the same key, simulating a previous fetch landing.
+	m.art = artState{key: "T||", output: "ANSI", fetching: false}
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	// art slot must be unchanged — same key, no new fetch.
+	if got.art.key != "T||" {
+		t.Errorf("art.key changed unexpectedly to %q", got.art.key)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; expected no new fetch")
+	}
+}
+
+func TestStatusMsgFiresNothingWhenRendererNil(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	m := New(c, nil) // no renderer ⇒ no art fetches ever
+
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.key != "" {
+		t.Errorf("art.key = %q; want empty (renderer nil)", got.art.key)
+	}
+	if got.art.fetching {
+		t.Error("art.fetching = true; want false (renderer nil)")
+	}
+}
+
+func TestStatusMsgWithEmptyTrackDoesNotFireFetchArtwork(t *testing.T) {
+	c := fake.New()
+	m := New(c, stubRenderer{out: "ANSI"})
+
+	// statusMsg with all-zero Track (e.g. transitional)
+	np := domain.NowPlaying{Track: domain.Track{}}
+	updated, _ := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+
+	if got.art.fetching {
+		t.Error("art.fetching = true; want false (empty track)")
 	}
 }

@@ -56,6 +56,17 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	}
 	m.state = Connected{Now: msg.now}
 	m.lastVolume = msg.now.Volume
+
+	// Track-change detection: fire a single fetchArtwork Cmd when:
+	//   - we have a renderer (chafa is available),
+	//   - the new track has a real identity (non-empty key),
+	//   - the cache is for a different track,
+	//   - no fetch is already in flight.
+	newKey := trackKey(msg.now.Track)
+	if m.renderer != nil && newKey != "" && newKey != m.art.key && !m.art.fetching {
+		m.art = artState{key: newKey, fetching: true}
+		return m, fetchArtwork(m.client, m.renderer, newKey)
+	}
 	return m, nil
 }
 
