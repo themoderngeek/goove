@@ -14,7 +14,7 @@ import (
 
 func newTestModel() Model {
 	c := fake.New()
-	return New(c)
+	return New(c, nil) // nil renderer = album art disabled in tests
 }
 
 func TestStatusMsgWithSuccessTransitionsToConnected(t *testing.T) {
@@ -85,7 +85,7 @@ func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	// Sync model to Connected state so space triggers PlayPause, not Launch.
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50, IsPlaying: false}
@@ -109,7 +109,7 @@ func TestNKeyTriggersNext(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	if cmd == nil {
@@ -125,7 +125,7 @@ func TestPKeyTriggersPrev(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	cmd()
 	if c.PrevCalls != 1 {
@@ -137,7 +137,7 @@ func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 
 	// Sync once to populate Connected state with volume=50 (fake default).
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50, IsPlaying: false}
@@ -167,7 +167,7 @@ func TestVolumeDownClampsAtZero(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
-	m := New(c)
+	m := New(c, nil)
 	m.lastVolume = 3
 	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Volume: 3, Track: domain.Track{Title: "T"}}})
 	m = tmp.(Model)
@@ -193,7 +193,7 @@ func TestQKeyEmitsQuit(t *testing.T) {
 
 func TestSpaceWhileDisconnectedTriggersLaunch(t *testing.T) {
 	c := fake.New()
-	m := New(c) // state=Disconnected
+	m := New(c, nil) // state=Disconnected
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if cmd == nil {
 		t.Fatal("expected a Cmd")
@@ -208,7 +208,7 @@ func TestActionDoneFiresStatusRefresh(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(actionDoneMsg{})
 	if cmd == nil {
@@ -222,7 +222,7 @@ func TestActionDoneFiresStatusRefresh(t *testing.T) {
 
 func TestActionDoneWithErrorSetsLastError(t *testing.T) {
 	c := fake.New()
-	m := New(c)
+	m := New(c, nil)
 	updated, _ := m.Update(actionDoneMsg{err: errors.New("boom")})
 	got := updated.(Model)
 	if got.lastError == nil {
@@ -234,7 +234,7 @@ func TestTickMsgFiresStatusFetchAndReschedules(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	c.SetTrack(domain.Track{Title: "T"}, 200, 5, true)
-	m := New(c)
+	m := New(c, nil)
 
 	_, cmd := m.Update(tickMsg{now: time.Now()})
 	if cmd == nil {

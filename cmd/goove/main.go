@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/themoderngeek/goove/internal/app"
+	"github.com/themoderngeek/goove/internal/art"
 	"github.com/themoderngeek/goove/internal/music/applescript"
 )
 
@@ -21,7 +22,13 @@ func main() {
 	slog.Info("goove starting")
 
 	client := applescript.NewDefault()
-	model := app.New(client)
+	var renderer art.Renderer
+	if art.Available() {
+		renderer = art.NewChafaRenderer()
+	} else {
+		slog.Info("chafa not found in PATH; album art disabled (install with: brew install chafa)")
+	}
+	model := app.New(client, renderer)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
