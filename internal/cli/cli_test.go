@@ -569,3 +569,148 @@ func TestStatusJSONErrorPathStillPrintsToStderr(t *testing.T) {
 		t.Errorf("stderr missing permission message: %q", stderr.String())
 	}
 }
+
+func TestTargetsListPlainConnected(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Active: true},
+		{Name: "Office", Kind: "AirPlay", Available: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Computer") {
+		t.Errorf("stdout missing Computer: %q", got)
+	}
+	if !strings.Contains(got, "*") {
+		t.Errorf("stdout missing selected marker '*': %q", got)
+	}
+	if !strings.Contains(got, "▶") {
+		t.Errorf("stdout missing active marker '▶': %q", got)
+	}
+	if !strings.Contains(got, "unavailable") {
+		t.Errorf("stdout missing 'unavailable' annotation for Office: %q", got)
+	}
+}
+
+func TestTargetsListJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list", "--json"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got []map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d; want 1", len(got))
+	}
+	if got[0]["name"] != "Computer" {
+		t.Errorf("name = %v; want Computer", got[0]["name"])
+	}
+	if got[0]["selected"] != true {
+		t.Errorf("selected = %v; want true", got[0]["selected"])
+	}
+}
+
+func TestTargetsListEmptyPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "(no AirPlay devices visible)") {
+		t.Errorf("stdout missing empty marker: %q", stdout.String())
+	}
+}
+
+func TestTargetsListEmptyJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{})
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"targets", "list", "--json"}, c, &stdout, &stderr)
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("stdout = %q; want '[]'", stdout.String())
+	}
+}
+
+func TestTargetsListNotRunningExit1(t *testing.T) {
+	c := fake.New() // not launched
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+}
+
+func TestTargetsNoSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a subcommand") {
+		t.Errorf("stderr missing 'requires a subcommand': %q", stderr.String())
+	}
+}
+
+func TestTargetsUnknownSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "frobnicate"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "frobnicate") {
+		t.Errorf("stderr missing unknown subcommand name: %q", stderr.String())
+	}
+}
+
+func TestTargetsHelpFlag(t *testing.T) {
+	for _, arg := range []string{"--help", "-h", "help"} {
+		t.Run(arg, func(t *testing.T) {
+			c := fake.New()
+			var stdout, stderr bytes.Buffer
+
+			code := Run([]string{"targets", arg}, c, &stdout, &stderr)
+			if code != 0 {
+				t.Errorf("exit = %d; want 0", code)
+			}
+			if !strings.Contains(stdout.String(), "manage Music's AirPlay") {
+				t.Errorf("stdout missing targets-specific help: %q", stdout.String())
+			}
+			if stderr.Len() != 0 {
+				t.Errorf("unexpected stderr: %q", stderr.String())
+			}
+		})
+	}
+}
