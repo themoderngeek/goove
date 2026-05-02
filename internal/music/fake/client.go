@@ -171,6 +171,9 @@ func (c *Client) SetVolume(ctx context.Context, percent int) error {
 	if c.forcedErr != nil {
 		return c.forcedErr
 	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
 	c.SetVolumeCalls++
 	if percent < 0 {
 		percent = 0

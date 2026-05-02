@@ -45,6 +45,8 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 		return cmdPrev(client, stderr)
 	case "launch":
 		return cmdLaunch(client, stderr)
+	case "volume":
+		return cmdVolume(args[1:], client, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usageText)
 		return 0

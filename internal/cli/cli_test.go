@@ -230,3 +230,100 @@ func TestLaunchPermissionDeniedExit2(t *testing.T) {
 		t.Errorf("stderr missing permission message: %q", stderr.String())
 	}
 }
+
+func TestVolumeSuccessSetsValue(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume", "73"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if c.SetVolumeCalls != 1 {
+		t.Errorf("SetVolumeCalls = %d; want 1", c.SetVolumeCalls)
+	}
+	// fake.Client.SetVolume clamps too, so reading back the volume confirms 73.
+	np, _ := c.Status(context.Background())
+	if np.Volume != 73 {
+		t.Errorf("Volume = %d; want 73", np.Volume)
+	}
+}
+
+func TestVolumeMissingArgExit1(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "volume requires a value") {
+		t.Errorf("stderr missing 'requires a value': %q", stderr.String())
+	}
+	if c.SetVolumeCalls != 0 {
+		t.Errorf("SetVolumeCalls = %d; want 0 (no client call on bad args)", c.SetVolumeCalls)
+	}
+}
+
+func TestVolumeInvalidArgExit1(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume", "loud"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "invalid volume") {
+		t.Errorf("stderr missing 'invalid volume': %q", stderr.String())
+	}
+	if c.SetVolumeCalls != 0 {
+		t.Errorf("SetVolumeCalls = %d; want 0", c.SetVolumeCalls)
+	}
+}
+
+func TestVolumeClampHigh(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume", "200"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (out-of-range silently clamps)", code)
+	}
+	np, _ := c.Status(context.Background())
+	if np.Volume != 100 {
+		t.Errorf("Volume = %d; want 100 (clamped)", np.Volume)
+	}
+}
+
+func TestVolumeClampLow(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume", "-10"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	np, _ := c.Status(context.Background())
+	if np.Volume != 0 {
+		t.Errorf("Volume = %d; want 0 (clamped)", np.Volume)
+	}
+}
+
+func TestVolumeNotRunningExit1WithHint(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"volume", "50"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+}
