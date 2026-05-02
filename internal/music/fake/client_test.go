@@ -162,3 +162,105 @@ func TestArtworkRespectsForcedErr(t *testing.T) {
 		t.Fatalf("err = %v; want ErrUnavailable", err)
 	}
 }
+
+func TestSetDevicesPopulatesList(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	devices := []domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true},
+	}
+	c.SetDevices(devices)
+
+	got, err := c.AirPlayDevices(context.Background())
+	if err != nil {
+		t.Fatalf("AirPlayDevices err = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d; want 2", len(got))
+	}
+	if got[0].Name != "Computer" || got[1].Name != "Kitchen Sonos" {
+		t.Errorf("got names = %q, %q", got[0].Name, got[1].Name)
+	}
+}
+
+func TestAirPlayDevicesNotRunning(t *testing.T) {
+	c := New()
+	_, err := c.AirPlayDevices(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestCurrentAirPlayDeviceReturnsSelected(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: false},
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Selected: true},
+	})
+
+	got, err := c.CurrentAirPlayDevice(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Kitchen Sonos" {
+		t.Errorf("got = %q; want Kitchen Sonos", got.Name)
+	}
+}
+
+func TestCurrentAirPlayDeviceNoneSelectedReturnsErrDeviceNotFound(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+	})
+
+	_, err := c.CurrentAirPlayDevice(context.Background())
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}
+
+func TestSetAirPlayDeviceUpdatesSelectedFlag(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: true},
+		{Name: "Kitchen Sonos", Selected: false},
+	})
+
+	if err := c.SetAirPlayDevice(context.Background(), "Kitchen Sonos"); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	got, _ := c.AirPlayDevices(context.Background())
+	if got[0].Selected {
+		t.Errorf("Computer.Selected = true; want false")
+	}
+	if !got[1].Selected {
+		t.Errorf("Kitchen Sonos.Selected = false; want true")
+	}
+}
+
+func TestSetAirPlayDeviceUnknownReturnsErrDeviceNotFound(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+
+	err := c.SetAirPlayDevice(context.Background(), "Atlantis")
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}
+
+func TestAirPlayDevicesHonoursForcedErr(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+	c.SimulateError(music.ErrPermission)
+
+	_, err := c.AirPlayDevices(context.Background())
+	if !errors.Is(err, music.ErrPermission) {
+		t.Fatalf("err = %v; want ErrPermission", err)
+	}
+}
