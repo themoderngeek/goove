@@ -887,3 +887,97 @@ func TestTargetsSetSubstringMatch(t *testing.T) {
 		t.Errorf("current = %q; want Kitchen Sonos (resolved from 'kitchen')", cur.Name)
 	}
 }
+
+func TestPlaySuccessSilentExit0(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"play"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+	if c.PlayCalls != 1 {
+		t.Errorf("PlayCalls = %d; want 1", c.PlayCalls)
+	}
+}
+
+func TestPlayNotRunningExit1WithHint(t *testing.T) {
+	c := fake.New() // not launched
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"play"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "goove launch") {
+		t.Errorf("stderr missing 'goove launch' hint: %q", stderr.String())
+	}
+}
+
+func TestPlayPermissionDeniedExit2(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SimulateError(music.ErrPermission)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"play"}, c, &stdout, &stderr)
+
+	if code != 2 {
+		t.Errorf("exit = %d; want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "not authorised") {
+		t.Errorf("stderr missing permission message: %q", stderr.String())
+	}
+}
+
+func TestPauseSuccessSilentExit0(t *testing.T) {
+	c := setupRunningClient(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"pause"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if c.PauseCalls != 1 {
+		t.Errorf("PauseCalls = %d; want 1", c.PauseCalls)
+	}
+}
+
+func TestPauseNotRunningExit1WithHint(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"pause"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+}
+
+func TestPausePermissionDeniedExit2(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SimulateError(music.ErrPermission)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"pause"}, c, &stdout, &stderr)
+
+	if code != 2 {
+		t.Errorf("exit = %d; want 2", code)
+	}
+}

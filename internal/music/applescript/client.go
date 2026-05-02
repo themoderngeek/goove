@@ -193,5 +193,15 @@ func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
 	}
 }
 
+func (c *Client) Play(ctx context.Context) error {
+	_, err := c.run(ctx, scriptPlay)
+	return err
+}
+
+func (c *Client) Pause(ctx context.Context) error {
+	_, err := c.run(ctx, scriptPause)
+	return err
+}
+
 // Compile-time check that *Client implements music.Client.
 var _ music.Client = (*Client)(nil)

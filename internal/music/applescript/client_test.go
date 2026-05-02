@@ -411,3 +411,25 @@ func TestSetAirPlayDeviceRaceReturnsErrDeviceNotFound(t *testing.T) {
 		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
 	}
 }
+
+func TestPlayRunsPlayScript(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	if err := c.Play(context.Background()); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if r.script != scriptPlay {
+		t.Errorf("ran %q; want scriptPlay", r.script)
+	}
+}
+
+func TestPauseRunsPauseScript(t *testing.T) {
+	r := &fakeRunner{}
+	c := New(r)
+	if err := c.Pause(context.Background()); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if r.script != scriptPause {
+		t.Errorf("ran %q; want scriptPause", r.script)
+	}
+}

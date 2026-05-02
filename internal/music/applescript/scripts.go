@@ -113,3 +113,6 @@ const scriptSetAirPlay = `tell application "Music"
 	set current AirPlay devices to {item 1 of matches}
 	return "OK"
 end tell`
+
+const scriptPlay = `tell application "Music" to play`
+const scriptPause = `tell application "Music" to pause`

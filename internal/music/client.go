@@ -19,6 +19,8 @@ type Client interface {
 	AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error)
 	CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error)
 	SetAirPlayDevice(ctx context.Context, name string) error
+	Play(ctx context.Context) error
+	Pause(ctx context.Context) error
 }
 
 var (

@@ -36,3 +36,17 @@ func cmdLaunch(client music.Client, stderr io.Writer) int {
 	}
 	return 0
 }
+
+func cmdPlay(client music.Client, stderr io.Writer) int {
+	if err := client.Play(context.Background()); err != nil {
+		return errorExit(err, stderr, true)
+	}
+	return 0
+}
+
+func cmdPause(client music.Client, stderr io.Writer) int {
+	if err := client.Pause(context.Background()); err != nil {
+		return errorExit(err, stderr, true)
+	}
+	return 0
+}
