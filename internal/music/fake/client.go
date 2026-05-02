@@ -27,6 +27,8 @@ type Client struct {
 
 	// Counters useful for assertions.
 	PlayPauseCalls int
+	PlayCalls      int
+	PauseCalls     int
 	NextCalls      int
 	PrevCalls      int
 	SetVolumeCalls int
@@ -207,6 +209,34 @@ func (c *Client) PlayPause(ctx context.Context) error {
 	}
 	c.PlayPauseCalls++
 	c.playing = !c.playing
+	return nil
+}
+
+// Play implements music.Client.
+func (c *Client) Play(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	c.PlayCalls++
+	return nil
+}
+
+// Pause implements music.Client.
+func (c *Client) Pause(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	c.PauseCalls++
 	return nil
 }
 

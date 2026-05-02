@@ -264,3 +264,43 @@ func TestAirPlayDevicesHonoursForcedErr(t *testing.T) {
 		t.Fatalf("err = %v; want ErrPermission", err)
 	}
 }
+
+func TestPlayIncrementsCounter(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+
+	if err := c.Play(context.Background()); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if c.PlayCalls != 1 {
+		t.Errorf("PlayCalls = %d; want 1", c.PlayCalls)
+	}
+}
+
+func TestPauseIncrementsCounter(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+
+	if err := c.Pause(context.Background()); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if c.PauseCalls != 1 {
+		t.Errorf("PauseCalls = %d; want 1", c.PauseCalls)
+	}
+}
+
+func TestPlayNotRunningReturnsErrNotRunning(t *testing.T) {
+	c := New() // not launched
+	err := c.Play(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestPauseNotRunningReturnsErrNotRunning(t *testing.T) {
+	c := New() // not launched
+	err := c.Pause(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
