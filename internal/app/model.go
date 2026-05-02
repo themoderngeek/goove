@@ -33,6 +33,16 @@ type artState struct {
 	fetching bool
 }
 
+// pickerState is the modal device-picker overlay state.
+// nil on Model means "picker not open"; non-nil means "picker is showing."
+// While loading is true, only esc/q are honoured (cancel cancels both fetch and set).
+type pickerState struct {
+	loading bool
+	devices []domain.AudioDevice
+	cursor  int
+	err     error
+}
+
 // Model holds the entire goove TUI state.
 type Model struct {
 	client music.Client
@@ -50,7 +60,8 @@ type Model struct {
 	height int
 
 	art      artState
-	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
+	renderer art.Renderer                   // nil ⇒ chafa unavailable; track-change detection skips fetches
+	picker   *pickerState                   // nil ⇒ picker not open (modal overlay state)
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
