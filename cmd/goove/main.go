@@ -7,15 +7,22 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/themoderngeek/goove/internal/app"
 	"github.com/themoderngeek/goove/internal/art"
+	"github.com/themoderngeek/goove/internal/cli"
 	"github.com/themoderngeek/goove/internal/music/applescript"
 )
 
 func main() {
+	if len(os.Args) > 1 && isCLIMode(os.Args[1]) {
+		client := applescript.NewDefault()
+		os.Exit(cli.Run(os.Args[1:], client, os.Stdout, os.Stderr))
+	}
+
 	if err := setupLogging(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not initialise log file: %v\n", err)
 	}
@@ -58,4 +65,14 @@ func setupLogging() error {
 	handler := slog.NewTextHandler(f, &slog.HandlerOptions{Level: level})
 	slog.SetDefault(slog.New(handler))
 	return nil
+}
+
+// isCLIMode reports whether the first non-program arg should route to CLI mode.
+// Help flags trigger CLI mode (so `goove --help` doesn't launch the TUI).
+// Any first arg that doesn't start with a dash is treated as a subcommand.
+func isCLIMode(firstArg string) bool {
+	if firstArg == "-h" || firstArg == "--help" {
+		return true
+	}
+	return !strings.HasPrefix(firstArg, "-")
 }
