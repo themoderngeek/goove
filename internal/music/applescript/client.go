@@ -142,7 +142,6 @@ func (c *Client) Artwork(ctx context.Context) ([]byte, error) {
 }
 
 // AirPlayDevices lists all AirPlay output devices known to Music.app.
-// TODO(T7): implement via scriptAirPlayDevices.
 func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error) {
 	out, err := c.run(ctx, scriptAirPlayDevices)
 	if err != nil {
@@ -151,15 +150,23 @@ func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, erro
 	return parseAirPlayDevices(string(out))
 }
 
-// CurrentAirPlayDevice returns the currently selected AirPlay device, or
-// ErrDeviceNotFound if no device is marked selected.
-// TODO(T7): implement.
+// CurrentAirPlayDevice implements music.Client. Returns the device with
+// Selected=true, or music.ErrDeviceNotFound if no device is selected.
 func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error) {
-	return domain.AudioDevice{}, fmt.Errorf("%w: CurrentAirPlayDevice not yet implemented", music.ErrUnavailable)
+	devices, err := c.AirPlayDevices(ctx)
+	if err != nil {
+		return domain.AudioDevice{}, err
+	}
+	for _, d := range devices {
+		if d.Selected {
+			return d, nil
+		}
+	}
+	return domain.AudioDevice{}, music.ErrDeviceNotFound
 }
 
 // SetAirPlayDevice switches output to the named AirPlay device.
-// TODO(T7): implement via scriptSetAirPlay.
+// TODO(T8): implement via scriptSetAirPlay.
 func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
 	return fmt.Errorf("%w: SetAirPlayDevice not yet implemented", music.ErrUnavailable)
 }

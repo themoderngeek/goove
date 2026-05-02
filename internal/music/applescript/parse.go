@@ -88,3 +88,29 @@ func parseAirPlayDevices(raw string) ([]domain.AudioDevice, error) {
 	}
 	return devices, nil
 }
+
+// matchAirPlayDevice picks the single device whose Name matches the user's input.
+// Exact match (case-sensitive) wins immediately; otherwise case-insensitive
+// substring match. Returns ErrDeviceNotFound if no matches; ErrAmbiguousDevice
+// if multiple substring matches.
+func matchAirPlayDevice(devices []domain.AudioDevice, name string) (domain.AudioDevice, error) {
+	for _, d := range devices {
+		if d.Name == name {
+			return d, nil
+		}
+	}
+	lower := strings.ToLower(name)
+	var matches []domain.AudioDevice
+	for _, d := range devices {
+		if strings.Contains(strings.ToLower(d.Name), lower) {
+			matches = append(matches, d)
+		}
+	}
+	if len(matches) == 0 {
+		return domain.AudioDevice{}, music.ErrDeviceNotFound
+	}
+	if len(matches) > 1 {
+		return domain.AudioDevice{}, music.ErrAmbiguousDevice
+	}
+	return matches[0], nil
+}

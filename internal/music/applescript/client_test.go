@@ -254,3 +254,59 @@ func TestRunnerErrorWithUnrelatedStderrMapsToErrUnavailable(t *testing.T) {
 		t.Fatalf("err = %v; should NOT match ErrPermission", err)
 	}
 }
+
+func TestAirPlayDevicesRunsScript(t *testing.T) {
+	r := &fakeRunner{out: []byte("")}
+	c := New(r)
+	c.AirPlayDevices(context.Background())
+	if r.script != scriptAirPlayDevices {
+		t.Errorf("ran %q; want scriptAirPlayDevices", r.script)
+	}
+}
+
+func TestAirPlayDevicesParsesOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("Computer\tcomputer\ttrue\tfalse\ttrue\n")}
+	c := New(r)
+
+	devices, err := c.AirPlayDevices(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(devices) != 1 || devices[0].Name != "Computer" {
+		t.Errorf("got = %+v", devices)
+	}
+}
+
+func TestAirPlayDevicesNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.AirPlayDevices(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestCurrentAirPlayDeviceReturnsSelected(t *testing.T) {
+	r := &fakeRunner{out: []byte(
+		"Computer\tcomputer\ttrue\tfalse\tfalse\n" +
+			"Kitchen Sonos\tAirPlay\ttrue\tfalse\ttrue\n",
+	)}
+	c := New(r)
+
+	got, err := c.CurrentAirPlayDevice(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Kitchen Sonos" {
+		t.Errorf("got = %q; want Kitchen Sonos", got.Name)
+	}
+}
+
+func TestCurrentAirPlayDeviceNoneSelectedReturnsErrDeviceNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("Computer\tcomputer\ttrue\tfalse\tfalse\n")}
+	c := New(r)
+	_, err := c.CurrentAirPlayDevice(context.Background())
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}

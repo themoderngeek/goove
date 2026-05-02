@@ -171,3 +171,50 @@ func TestParseAirPlayDevicesMalformedReturnsErrUnavailable(t *testing.T) {
 		t.Fatalf("err = %v; want ErrUnavailable", err)
 	}
 }
+
+func TestMatchAirPlayDeviceExactWins(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Living Room"},
+		{Name: "Living Room Speakers"},
+	}
+	got, err := matchAirPlayDevice(devices, "Living Room")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Living Room" {
+		t.Errorf("got = %q; want exact 'Living Room'", got.Name)
+	}
+}
+
+func TestMatchAirPlayDeviceCaseInsensitiveSubstring(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Mark's Mac mini"},
+		{Name: "Kitchen Sonos"},
+	}
+	got, err := matchAirPlayDevice(devices, "kitchen")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Kitchen Sonos" {
+		t.Errorf("got = %q; want Kitchen Sonos", got.Name)
+	}
+}
+
+func TestMatchAirPlayDeviceNotFoundReturnsErrDeviceNotFound(t *testing.T) {
+	devices := []domain.AudioDevice{{Name: "Computer"}}
+	_, err := matchAirPlayDevice(devices, "Atlantis")
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}
+
+func TestMatchAirPlayDeviceAmbiguousReturnsErrAmbiguousDevice(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Kitchen Sonos"},
+		{Name: "Office Sonos"},
+	}
+	_, err := matchAirPlayDevice(devices, "sonos")
+	if !errors.Is(err, music.ErrAmbiguousDevice) {
+		t.Fatalf("err = %v; want ErrAmbiguousDevice", err)
+	}
+}
