@@ -310,3 +310,104 @@ func TestCurrentAirPlayDeviceNoneSelectedReturnsErrDeviceNotFound(t *testing.T) 
 		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
 	}
 }
+
+// twoCallFakeRunner records every script invocation, so we can verify
+// SetAirPlayDevice does the list-then-set sequence.
+type twoCallFakeRunner struct {
+	scripts []string
+	outs    [][]byte
+	errs    []error
+	idx     int
+}
+
+func (f *twoCallFakeRunner) Run(ctx context.Context, script string) ([]byte, error) {
+	f.scripts = append(f.scripts, script)
+	if f.idx >= len(f.outs) {
+		return nil, errors.New("no more outputs scripted")
+	}
+	out, err := f.outs[f.idx], f.errs[f.idx]
+	f.idx++
+	return out, err
+}
+
+func TestSetAirPlayDeviceCallsListThenSet(t *testing.T) {
+	r := &twoCallFakeRunner{
+		outs: [][]byte{
+			[]byte("Computer\tcomputer\ttrue\tfalse\ttrue\n" +
+				"Kitchen Sonos\tAirPlay\ttrue\tfalse\tfalse\n"),
+			[]byte("OK\n"),
+		},
+		errs: []error{nil, nil},
+	}
+	c := New(r)
+
+	err := c.SetAirPlayDevice(context.Background(), "Kitchen Sonos")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(r.scripts) != 2 {
+		t.Fatalf("script call count = %d; want 2", len(r.scripts))
+	}
+	if r.scripts[0] != scriptAirPlayDevices {
+		t.Errorf("first script = %q; want scriptAirPlayDevices", r.scripts[0])
+	}
+	if !strings.Contains(r.scripts[1], "Kitchen Sonos") {
+		t.Errorf("second script did not contain device name: %q", r.scripts[1])
+	}
+}
+
+func TestSetAirPlayDeviceUsesExactNameForSetCall(t *testing.T) {
+	// User passes substring "kitchen"; matcher resolves to "Kitchen Sonos";
+	// the set script should be called with the exact name "Kitchen Sonos".
+	r := &twoCallFakeRunner{
+		outs: [][]byte{
+			[]byte("Computer\tcomputer\ttrue\tfalse\ttrue\n" +
+				"Kitchen Sonos\tAirPlay\ttrue\tfalse\tfalse\n"),
+			[]byte("OK\n"),
+		},
+		errs: []error{nil, nil},
+	}
+	c := New(r)
+
+	c.SetAirPlayDevice(context.Background(), "kitchen")
+	if !strings.Contains(r.scripts[1], "Kitchen Sonos") {
+		t.Errorf("set script did not contain exact name 'Kitchen Sonos': %q", r.scripts[1])
+	}
+}
+
+func TestSetAirPlayDeviceNotFoundReturnsErrDeviceNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("Computer\tcomputer\ttrue\tfalse\ttrue\n")}
+	c := New(r)
+	err := c.SetAirPlayDevice(context.Background(), "Atlantis")
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}
+
+func TestSetAirPlayDeviceAmbiguousReturnsErrAmbiguousDevice(t *testing.T) {
+	r := &fakeRunner{out: []byte(
+		"Kitchen Sonos\tAirPlay\ttrue\tfalse\tfalse\n" +
+			"Office Sonos\tAirPlay\ttrue\tfalse\tfalse\n",
+	)}
+	c := New(r)
+	err := c.SetAirPlayDevice(context.Background(), "sonos")
+	if !errors.Is(err, music.ErrAmbiguousDevice) {
+		t.Fatalf("err = %v; want ErrAmbiguousDevice", err)
+	}
+}
+
+func TestSetAirPlayDeviceRaceReturnsErrDeviceNotFound(t *testing.T) {
+	// List succeeds; set returns NOT_FOUND (the device disappeared between calls).
+	r := &twoCallFakeRunner{
+		outs: [][]byte{
+			[]byte("Kitchen Sonos\tAirPlay\ttrue\tfalse\ttrue\n"),
+			[]byte("NOT_FOUND\n"),
+		},
+		errs: []error{nil, nil},
+	}
+	c := New(r)
+	err := c.SetAirPlayDevice(context.Background(), "Kitchen Sonos")
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}

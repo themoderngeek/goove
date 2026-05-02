@@ -165,10 +165,32 @@ func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, 
 	return domain.AudioDevice{}, music.ErrDeviceNotFound
 }
 
-// SetAirPlayDevice switches output to the named AirPlay device.
-// TODO(T8): implement via scriptSetAirPlay.
+// SetAirPlayDevice implements music.Client. Resolves the user's name input
+// against the AirPlay device list (exact match first, then case-insensitive
+// substring), then runs scriptSetAirPlay with the matched device's exact name.
 func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
-	return fmt.Errorf("%w: SetAirPlayDevice not yet implemented", music.ErrUnavailable)
+	devices, err := c.AirPlayDevices(ctx)
+	if err != nil {
+		return err
+	}
+	match, err := matchAirPlayDevice(devices, name)
+	if err != nil {
+		return err
+	}
+	out, err := c.run(ctx, fmt.Sprintf(scriptSetAirPlay, match.Name))
+	if err != nil {
+		return err
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "OK":
+		return nil
+	case "NOT_RUNNING":
+		return music.ErrNotRunning
+	case "NOT_FOUND":
+		return music.ErrDeviceNotFound
+	default:
+		return fmt.Errorf("%w: unexpected scriptSetAirPlay output: %q", music.ErrUnavailable, out)
+	}
 }
 
 // Compile-time check that *Client implements music.Client.
