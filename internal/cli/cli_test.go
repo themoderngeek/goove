@@ -179,3 +179,54 @@ func TestPrevNotRunningExit1(t *testing.T) {
 		t.Errorf("exit = %d; want 1", code)
 	}
 }
+
+func TestLaunchSuccessFromNotRunning(t *testing.T) {
+	c := fake.New() // not launched
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"launch"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+	if c.LaunchCalls != 1 {
+		t.Errorf("LaunchCalls = %d; want 1", c.LaunchCalls)
+	}
+	running, _ := c.IsRunning(context.Background())
+	if !running {
+		t.Errorf("expected fake to be running after Launch")
+	}
+}
+
+func TestLaunchSuccessWhenAlreadyRunning(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background()) // already running before our call
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"launch"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (launch is idempotent)", code)
+	}
+}
+
+func TestLaunchPermissionDeniedExit2(t *testing.T) {
+	c := fake.New()
+	c.SimulateError(music.ErrPermission)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"launch"}, c, &stdout, &stderr)
+
+	if code != 2 {
+		t.Errorf("exit = %d; want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "not authorised") {
+		t.Errorf("stderr missing permission message: %q", stderr.String())
+	}
+}
