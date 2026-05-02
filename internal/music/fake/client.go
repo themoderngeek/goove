@@ -131,6 +131,9 @@ func (c *Client) PlayPause(ctx context.Context) error {
 	if c.forcedErr != nil {
 		return c.forcedErr
 	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
 	c.PlayPauseCalls++
 	c.playing = !c.playing
 	return nil
@@ -142,6 +145,9 @@ func (c *Client) Next(ctx context.Context) error {
 	if c.forcedErr != nil {
 		return c.forcedErr
 	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
 	c.NextCalls++
 	return nil
 }
@@ -151,6 +157,9 @@ func (c *Client) Prev(ctx context.Context) error {
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
 		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
 	}
 	c.PrevCalls++
 	return nil
