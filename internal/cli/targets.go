@@ -118,7 +118,28 @@ func cmdTargetsList(args []string, client music.Client, stdout, stderr io.Writer
 // Bodies are intentionally empty — neither is dispatched-to by any T15 test.
 // (Go does not require unused parameters to be discarded.)
 func cmdTargetsGet(args []string, client music.Client, stdout, stderr io.Writer) int {
-	return 1 // Implemented in Task 16.
+	jsonOutput := false
+	for _, a := range args {
+		if a == "--json" || a == "-j" {
+			jsonOutput = true
+		}
+	}
+
+	device, err := client.CurrentAirPlayDevice(context.Background())
+	if err != nil {
+		// ErrDeviceNotFound is a meaningful state report ("nothing selected"),
+		// but for `get` we treat it as a 1-exit since there's no name to print.
+		return errorExit(err, stderr, true)
+	}
+
+	if jsonOutput {
+		if err := json.NewEncoder(stdout).Encode(toDeviceJSON(device)); err != nil {
+			return 1
+		}
+		return 0
+	}
+	fmt.Fprintln(stdout, device.Name)
+	return 0
 }
 
 func cmdTargetsSet(args []string, client music.Client, stderr io.Writer) int {

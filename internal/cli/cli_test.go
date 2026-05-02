@@ -714,3 +714,62 @@ func TestTargetsHelpFlag(t *testing.T) {
 		})
 	}
 }
+
+func TestTargetsGetPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+		{Name: "Kitchen Sonos", Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if strings.TrimSpace(stdout.String()) != "Kitchen Sonos" {
+		t.Errorf("stdout = %q; want 'Kitchen Sonos'", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestTargetsGetJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get", "--json"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if got["name"] != "Kitchen Sonos" {
+		t.Errorf("name = %v; want Kitchen Sonos", got["name"])
+	}
+	if got["selected"] != true {
+		t.Errorf("selected = %v; want true", got["selected"])
+	}
+}
+
+func TestTargetsGetNoneSelectedExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1 (no device selected)", code)
+	}
+}
