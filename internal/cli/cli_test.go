@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -455,5 +456,116 @@ func TestStatusUnavailableExit1(t *testing.T) {
 
 	if code != 1 {
 		t.Errorf("exit = %d; want 1", code)
+	}
+}
+
+func TestStatusJSONConnected(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T", Artist: "A", Album: "B"}, 186, 61, true)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status", "--json"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	// Parse the JSON to verify shape.
+	var got struct {
+		IsPlaying bool `json:"is_playing"`
+		Track     *struct {
+			Title  string `json:"title"`
+			Artist string `json:"artist"`
+			Album  string `json:"album"`
+		} `json:"track"`
+		PositionSec *int `json:"position_sec"`
+		DurationSec *int `json:"duration_sec"`
+		Volume      *int `json:"volume"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if !got.IsPlaying {
+		t.Errorf("IsPlaying = false; want true")
+	}
+	if got.Track == nil || got.Track.Title != "T" || got.Track.Artist != "A" || got.Track.Album != "B" {
+		t.Errorf("Track = %+v", got.Track)
+	}
+	if got.PositionSec == nil || *got.PositionSec != 61 {
+		t.Errorf("PositionSec = %v; want 61", got.PositionSec)
+	}
+	if got.DurationSec == nil || *got.DurationSec != 186 {
+		t.Errorf("DurationSec = %v; want 186", got.DurationSec)
+	}
+	if got.Volume == nil || *got.Volume != 50 {
+		t.Errorf("Volume = %v; want 50 (fake default)", got.Volume)
+	}
+}
+
+func TestStatusJSONShortFlagJEquivalent(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status", "-j"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	// Output must be valid JSON (not the plain-text format).
+	var any map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &any); err != nil {
+		t.Errorf("output is not valid JSON with -j: %v\n%q", err, stdout.String())
+	}
+}
+
+func TestStatusJSONIdleOmitsOptionalFields(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background()) // running but no track
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status", "--json"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	// Validate JSON.
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, got)
+	}
+	if v, ok := parsed["is_playing"]; !ok || v != false {
+		t.Errorf("is_playing = %v; want false", v)
+	}
+	if v, ok := parsed["track"]; !ok || v != nil {
+		t.Errorf("track = %v; want nil", v)
+	}
+	if _, ok := parsed["volume"]; ok {
+		t.Errorf("volume should be omitted in Idle JSON output: %q", got)
+	}
+	if _, ok := parsed["position_sec"]; ok {
+		t.Errorf("position_sec should be omitted in Idle JSON output: %q", got)
+	}
+}
+
+func TestStatusJSONErrorPathStillPrintsToStderr(t *testing.T) {
+	c := fake.New()
+	c.SimulateError(music.ErrPermission)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status", "--json"}, c, &stdout, &stderr)
+
+	if code != 2 {
+		t.Errorf("exit = %d; want 2", code)
+	}
+	// stdout MUST be empty (don't pollute the JSON pipe with anything).
+	if stdout.Len() != 0 {
+		t.Errorf("stdout should be empty on permission error in --json mode: %q", stdout.String())
+	}
+	// stderr gets the plain-text error.
+	if !strings.Contains(stderr.String(), "not authorised") {
+		t.Errorf("stderr missing permission message: %q", stderr.String())
 	}
 }
