@@ -16,7 +16,7 @@ const (
 	compactThreshold = 50
 )
 
-const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   q: quit"
+const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   o: output   q: quit"
 
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
@@ -31,6 +31,9 @@ var (
 func (m Model) View() string {
 	if m.permissionDenied {
 		return renderPermissionDenied()
+	}
+	if m.picker != nil {
+		return renderPicker(m.picker)
 	}
 	if m.width > 0 && m.width < compactThreshold {
 		return renderCompact(m)
