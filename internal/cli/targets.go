@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 )
-
-// Note: `errors` is added to imports in Task 17 when cmdTargetsSet uses errors.Is.
 
 // deviceJSON is the wire format for `goove targets list --json` and
 // `goove targets get --json`. snake_case to match other CLI JSON shapes.
@@ -143,5 +142,53 @@ func cmdTargetsGet(args []string, client music.Client, stdout, stderr io.Writer)
 }
 
 func cmdTargetsSet(args []string, client music.Client, stderr io.Writer) int {
-	return 1 // Implemented in Task 17.
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "goove: targets set requires a device name")
+		return 1
+	}
+	name := args[0]
+
+	// Resolve the name to an exact device name by fetching the device list and
+	// doing exact-then-substring matching. This keeps ambiguous/not-found logic
+	// in the CLI layer and works with all Client implementations (including fake).
+	devices, err := client.AirPlayDevices(context.Background())
+	if err != nil {
+		return errorExit(err, stderr, true)
+	}
+
+	// Exact match wins immediately.
+	for _, d := range devices {
+		if d.Name == name {
+			if setErr := client.SetAirPlayDevice(context.Background(), d.Name); setErr != nil {
+				return errorExit(setErr, stderr, true)
+			}
+			return 0
+		}
+	}
+
+	// Case-insensitive substring match.
+	lower := strings.ToLower(name)
+	var matches []domain.AudioDevice
+	for _, d := range devices {
+		if strings.Contains(strings.ToLower(d.Name), lower) {
+			matches = append(matches, d)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		fmt.Fprintf(stderr, "goove: airplay device not found: %s\n", name)
+		return 1
+	case 1:
+		if setErr := client.SetAirPlayDevice(context.Background(), matches[0].Name); setErr != nil {
+			return errorExit(setErr, stderr, true)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "goove: %q matches multiple devices:\n", name)
+		for _, d := range matches {
+			fmt.Fprintf(stderr, "  %s\n", d.Name)
+		}
+		return 1
+	}
 }

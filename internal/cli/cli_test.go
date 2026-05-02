@@ -773,3 +773,117 @@ func TestTargetsGetNoneSelectedExit1(t *testing.T) {
 		t.Errorf("exit = %d; want 1 (no device selected)", code)
 	}
 }
+
+func TestTargetsSetSuccess(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: true},
+		{Name: "Kitchen Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Kitchen Sonos"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Kitchen Sonos" {
+		t.Errorf("current = %q; want Kitchen Sonos", cur.Name)
+	}
+}
+
+func TestTargetsSetMissingNameExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a device name") {
+		t.Errorf("stderr missing 'requires a device name': %q", stderr.String())
+	}
+}
+
+func TestTargetsSetNotFoundExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Atlantis"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "airplay device not found: Atlantis") {
+		t.Errorf("stderr missing 'not found: Atlantis': %q", stderr.String())
+	}
+}
+
+func TestTargetsSetAmbiguousExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Kitchen Sonos"},
+		{Name: "Office Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "sonos"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	got := stderr.String()
+	if !strings.Contains(got, "matches multiple") {
+		t.Errorf("stderr missing 'matches multiple': %q", got)
+	}
+	if !strings.Contains(got, "Kitchen Sonos") || !strings.Contains(got, "Office Sonos") {
+		t.Errorf("stderr should list both matches: %q", got)
+	}
+}
+
+func TestTargetsSetExactMatchPriority(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Living Room", Selected: false},
+		{Name: "Living Room Speakers", Selected: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Living Room"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (exact match should win, no ambiguity)", code)
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Living Room" {
+		t.Errorf("current = %q; want exact 'Living Room'", cur.Name)
+	}
+}
+
+func TestTargetsSetSubstringMatch(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: true},
+		{Name: "Kitchen Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "kitchen"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Kitchen Sonos" {
+		t.Errorf("current = %q; want Kitchen Sonos (resolved from 'kitchen')", cur.Name)
+	}
+}
