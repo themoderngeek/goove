@@ -59,3 +59,32 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 		Volume:    vol,
 	}, nil
 }
+
+// parseAirPlayDevices parses the tab-separated output of scriptAirPlayDevices.
+// Special sentinel NOT_RUNNING maps to music.ErrNotRunning. Empty input
+// (Music shows zero AirPlay devices — legitimate state) returns an empty slice.
+func parseAirPlayDevices(raw string) ([]domain.AudioDevice, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "NOT_RUNNING" {
+		return nil, music.ErrNotRunning
+	}
+	if trimmed == "" {
+		return []domain.AudioDevice{}, nil
+	}
+	var devices []domain.AudioDevice
+	for _, line := range strings.Split(trimmed, "\n") {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 5 {
+			return nil, fmt.Errorf("%w: device line has %d fields, want 5: %q",
+				music.ErrUnavailable, len(fields), line)
+		}
+		devices = append(devices, domain.AudioDevice{
+			Name:      fields[0],
+			Kind:      fields[1],
+			Available: fields[2] == "true",
+			Active:    fields[3] == "true",
+			Selected:  fields[4] == "true",
+		})
+	}
+	return devices, nil
+}
