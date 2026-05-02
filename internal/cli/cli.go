@@ -19,6 +19,8 @@ const usageText = `goove — Apple Music TUI controller
 Usage:
   goove                       Launch the TUI
   goove status [--json]       Print the current track (one line)
+  goove play                  Start playback (no-op if already playing)
+  goove pause                 Pause playback (no-op if already paused)
   goove toggle                Play/pause toggle
   goove next                  Skip to the next track
   goove prev                  Skip to the previous track
@@ -40,6 +42,10 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "status":
 		return cmdStatus(args[1:], client, stdout, stderr)
+	case "play":
+		return cmdPlay(client, stderr)
+	case "pause":
+		return cmdPause(client, stderr)
 	case "toggle":
 		return cmdToggle(client, stderr)
 	case "next":
