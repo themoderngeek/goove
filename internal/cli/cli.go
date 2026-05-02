@@ -37,6 +37,8 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 		return 1
 	}
 	switch args[0] {
+	case "status":
+		return cmdStatus(args[1:], client, stdout, stderr)
 	case "toggle":
 		return cmdToggle(client, stderr)
 	case "next":

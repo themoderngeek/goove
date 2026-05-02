@@ -327,3 +327,133 @@ func TestVolumeNotRunningExit1WithHint(t *testing.T) {
 		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
 	}
 }
+
+func TestStatusPlainConnectedPlaying(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "Hippie Sunshine", Artist: "Kasabian", Album: "ACT III"}, 186, 61, true)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "▶") {
+		t.Errorf("stdout missing playing symbol ▶: %q", got)
+	}
+	if !strings.Contains(got, "Hippie Sunshine") {
+		t.Errorf("stdout missing title: %q", got)
+	}
+	if !strings.Contains(got, "Kasabian") {
+		t.Errorf("stdout missing artist: %q", got)
+	}
+	if !strings.Contains(got, "1:01") {
+		t.Errorf("stdout missing position 1:01: %q", got)
+	}
+	if !strings.Contains(got, "3:06") {
+		t.Errorf("stdout missing duration 3:06: %q", got)
+	}
+	// Volume should be present — fake's default is 50.
+	if !strings.Contains(got, "%") {
+		t.Errorf("stdout missing volume percentage: %q", got)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestStatusPlainConnectedPaused(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 100, 0, false)
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"status"}, c, &stdout, &stderr)
+
+	if !strings.Contains(stdout.String(), "⏸") {
+		t.Errorf("stdout missing paused symbol ⏸: %q", stdout.String())
+	}
+}
+
+func TestStatusPlainConnectedNoArtist(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T", Artist: "", Album: "A"}, 100, 0, true)
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"status"}, c, &stdout, &stderr)
+
+	got := stdout.String()
+	// Should NOT contain " — " (the artist separator) when artist is empty.
+	if strings.Contains(got, " — ") {
+		t.Errorf("stdout should not have ' — ' separator when artist is empty: %q", got)
+	}
+}
+
+func TestStatusPlainIdleExit0(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background()) // running but no track set
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (Idle is a successful state report)", code)
+	}
+	if !strings.Contains(stdout.String(), "(no track loaded)") {
+		t.Errorf("stdout missing '(no track loaded)': %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestStatusNotRunningExit1NoHint(t *testing.T) {
+	c := fake.New() // not running
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+	got := stderr.String()
+	if !strings.Contains(got, "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", got)
+	}
+	// status should NOT include the launch hint.
+	if strings.Contains(got, "goove launch") {
+		t.Errorf("stderr should NOT include 'goove launch' hint for status: %q", got)
+	}
+}
+
+func TestStatusPermissionExit2(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SimulateError(music.ErrPermission)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status"}, c, &stdout, &stderr)
+
+	if code != 2 {
+		t.Errorf("exit = %d; want 2", code)
+	}
+}
+
+func TestStatusUnavailableExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SimulateError(music.ErrUnavailable)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"status"}, c, &stdout, &stderr)
+
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+}
