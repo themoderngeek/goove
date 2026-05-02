@@ -695,3 +695,105 @@ func TestTransportKeysSuppressedWhilePickerOpen(t *testing.T) {
 		t.Error("picker closed unexpectedly")
 	}
 }
+
+func TestDevicesMsgPopulatesPicker(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.picker = &pickerState{loading: true}
+
+	devices := []domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+		{Name: "Kitchen Sonos", Selected: true},
+	}
+	updated, _ := m.Update(devicesMsg{devices: devices, err: nil})
+	got := updated.(Model)
+
+	if got.picker.loading {
+		t.Error("loading still true after devicesMsg")
+	}
+	if len(got.picker.devices) != 2 {
+		t.Errorf("len = %d; want 2", len(got.picker.devices))
+	}
+	// Cursor should land on the currently-selected device.
+	if got.picker.cursor != 1 {
+		t.Errorf("cursor = %d; want 1 (Kitchen Sonos has Selected=true)", got.picker.cursor)
+	}
+}
+
+func TestDevicesMsgErrorShownInPicker(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.picker = &pickerState{loading: true}
+
+	updated, _ := m.Update(devicesMsg{err: music.ErrUnavailable})
+	got := updated.(Model)
+
+	if got.picker.loading {
+		t.Error("loading still true after error devicesMsg")
+	}
+	if got.picker.err == nil {
+		t.Error("expected picker.err set")
+	}
+}
+
+func TestDevicesMsgIgnoredWhenPickerClosed(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	// picker is nil — user esc'd before fetch landed.
+
+	updated, _ := m.Update(devicesMsg{devices: []domain.AudioDevice{{Name: "A"}}})
+	if updated.(Model).picker != nil {
+		t.Error("picker should remain nil; stale devicesMsg should be discarded")
+	}
+}
+
+func TestDeviceSetMsgSuccessClosesPicker(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.picker = &pickerState{
+		loading: true,
+		devices: []domain.AudioDevice{{Name: "A"}},
+	}
+
+	updated, _ := m.Update(deviceSetMsg{err: nil})
+	if updated.(Model).picker != nil {
+		t.Errorf("picker = %+v; want nil after successful set", updated.(Model).picker)
+	}
+}
+
+func TestDeviceSetMsgErrorKeepsPickerOpen(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.picker = &pickerState{
+		loading: true,
+		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
+		cursor:  1,
+	}
+
+	updated, _ := m.Update(deviceSetMsg{err: music.ErrDeviceNotFound})
+	got := updated.(Model)
+
+	if got.picker == nil {
+		t.Fatal("picker closed on error; want it to stay open")
+	}
+	if got.picker.loading {
+		t.Error("loading still true after error deviceSetMsg")
+	}
+	if got.picker.err == nil {
+		t.Error("expected picker.err set")
+	}
+	if got.picker.cursor != 1 {
+		t.Errorf("cursor changed unexpectedly to %d", got.picker.cursor)
+	}
+}
+
+func TestDeviceSetMsgIgnoredWhenPickerClosed(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	// picker is nil — user esc'd before set landed.
+
+	updated, _ := m.Update(deviceSetMsg{err: nil})
+	if updated.(Model).picker != nil {
+		t.Error("picker should remain nil")
+	}
+}

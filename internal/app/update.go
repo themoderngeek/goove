@@ -51,6 +51,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			output: msg.output, // "" on any error path → View shows no-art layout
 		}
 		return m, nil
+
+	case devicesMsg:
+		if m.picker == nil {
+			return m, nil // user esc'd before fetch returned — discard
+		}
+		m.picker.loading = false
+		m.picker.err = msg.err
+		m.picker.devices = msg.devices
+		// Land cursor on currently-selected device, if any.
+		for i, d := range msg.devices {
+			if d.Selected {
+				m.picker.cursor = i
+				break
+			}
+		}
+		return m, nil
+
+	case deviceSetMsg:
+		if m.picker == nil {
+			return m, nil // user esc'd before set returned — discard
+		}
+		if msg.err != nil {
+			m.picker.loading = false
+			m.picker.err = msg.err
+			return m, nil
+		}
+		// Success: close the picker. Next 1Hz status tick re-renders the player view.
+		m.picker = nil
+		return m, nil
 	}
 	return m, nil
 }
