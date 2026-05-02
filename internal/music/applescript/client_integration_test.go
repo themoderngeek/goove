@@ -93,3 +93,37 @@ func TestIntegrationArtwork(t *testing.T) {
 	}
 	t.Logf("Artwork: %d bytes, format=%s, %dx%d", len(bytes), format, cfg.Width, cfg.Height)
 }
+
+func TestIntegrationAirPlayDevicesRoundtrip(t *testing.T) {
+	c := NewDefault()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	running, err := c.IsRunning(ctx)
+	if err != nil {
+		t.Fatalf("IsRunning err = %v", err)
+	}
+	if !running {
+		t.Skip("Music.app is not running; cannot exercise AirPlayDevices")
+	}
+
+	devices, err := c.AirPlayDevices(ctx)
+	if err != nil {
+		t.Fatalf("AirPlayDevices err = %v", err)
+	}
+	t.Logf("Music reports %d AirPlay device(s):", len(devices))
+	for _, d := range devices {
+		t.Logf("  - %s (kind=%s available=%v active=%v selected=%v)",
+			d.Name, d.Kind, d.Available, d.Active, d.Selected)
+	}
+
+	current, err := c.CurrentAirPlayDevice(ctx)
+	if err != nil {
+		t.Logf("CurrentAirPlayDevice returned %v (acceptable if no device selected)", err)
+	} else {
+		t.Logf("Currently selected: %s", current.Name)
+	}
+
+	// Read-only by design — this test does NOT call SetAirPlayDevice
+	// because that would disrupt the user's actual audio routing.
+}

@@ -141,5 +141,57 @@ func (c *Client) Artwork(ctx context.Context) ([]byte, error) {
 	}
 }
 
+// AirPlayDevices lists all AirPlay output devices known to Music.app.
+func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error) {
+	out, err := c.run(ctx, scriptAirPlayDevices)
+	if err != nil {
+		return nil, err
+	}
+	return parseAirPlayDevices(string(out))
+}
+
+// CurrentAirPlayDevice implements music.Client. Returns the device with
+// Selected=true, or music.ErrDeviceNotFound if no device is selected.
+func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error) {
+	devices, err := c.AirPlayDevices(ctx)
+	if err != nil {
+		return domain.AudioDevice{}, err
+	}
+	for _, d := range devices {
+		if d.Selected {
+			return d, nil
+		}
+	}
+	return domain.AudioDevice{}, music.ErrDeviceNotFound
+}
+
+// SetAirPlayDevice implements music.Client. Resolves the user's name input
+// against the AirPlay device list (exact match first, then case-insensitive
+// substring), then runs scriptSetAirPlay with the matched device's exact name.
+func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
+	devices, err := c.AirPlayDevices(ctx)
+	if err != nil {
+		return err
+	}
+	match, err := matchAirPlayDevice(devices, name)
+	if err != nil {
+		return err
+	}
+	out, err := c.run(ctx, fmt.Sprintf(scriptSetAirPlay, match.Name))
+	if err != nil {
+		return err
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "OK":
+		return nil
+	case "NOT_RUNNING":
+		return music.ErrNotRunning
+	case "NOT_FOUND":
+		return music.ErrDeviceNotFound
+	default:
+		return fmt.Errorf("%w: unexpected scriptSetAirPlay output: %q", music.ErrUnavailable, out)
+	}
+}
+
 // Compile-time check that *Client implements music.Client.
 var _ music.Client = (*Client)(nil)

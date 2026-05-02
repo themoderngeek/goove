@@ -51,6 +51,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			output: msg.output, // "" on any error path → View shows no-art layout
 		}
 		return m, nil
+
+	case devicesMsg:
+		if m.picker == nil {
+			return m, nil // user esc'd before fetch returned — discard
+		}
+		m.picker.loading = false
+		m.picker.err = msg.err
+		m.picker.devices = msg.devices
+		// Land cursor on currently-selected device, if any.
+		for i, d := range msg.devices {
+			if d.Selected {
+				m.picker.cursor = i
+				break
+			}
+		}
+		return m, nil
+
+	case deviceSetMsg:
+		if m.picker == nil {
+			return m, nil // user esc'd before set returned — discard
+		}
+		if msg.err != nil {
+			m.picker.loading = false
+			m.picker.err = msg.err
+			return m, nil
+		}
+		// Success: close the picker. Next 1Hz status tick re-renders the player view.
+		m.picker = nil
+		return m, nil
 	}
 	return m, nil
 }
@@ -95,6 +124,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.picker != nil {
+		return m.handlePickerKey(msg)
+	}
+
 	switch msg.String() {
 	case "q":
 		return m, tea.Quit
@@ -116,6 +149,61 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	case "-":
 		return m.applyVolumeDelta(-5)
+
+	case "o":
+		// Open the device picker. Suppressed in Disconnected — the AirPlay
+		// device list requires Music to be running. permissionDenied is also
+		// suppressed (handled at the top of this function).
+		if _, ok := m.state.(Disconnected); ok {
+			return m, nil
+		}
+		m.picker = &pickerState{loading: true}
+		return m, fetchDevices(m.client)
+	}
+	return m, nil
+}
+
+// handlePickerKey routes keystrokes when the picker overlay is open.
+// Transport keys are suppressed by virtue of routing through this function
+// instead of the normal switch.
+func (m Model) handlePickerKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if m.picker.loading {
+		// Only esc/q work while loading.
+		if msg.String() == "esc" || msg.String() == "q" {
+			m.picker = nil
+			return m, nil
+		}
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "esc", "q":
+		m.picker = nil
+		return m, nil
+
+	case "up", "k":
+		if m.picker.cursor > 0 {
+			m.picker.cursor--
+		}
+		return m, nil
+
+	case "down", "j":
+		if m.picker.cursor < len(m.picker.devices)-1 {
+			m.picker.cursor++
+		}
+		return m, nil
+
+	case "enter":
+		if len(m.picker.devices) == 0 {
+			return m, nil
+		}
+		target := m.picker.devices[m.picker.cursor].Name
+		m.picker.loading = true
+		client := m.client
+		return m, func() tea.Msg {
+			err := client.SetAirPlayDevice(context.Background(), target)
+			return deviceSetMsg{err: err}
+		}
 	}
 	return m, nil
 }

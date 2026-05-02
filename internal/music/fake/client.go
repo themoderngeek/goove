@@ -23,6 +23,7 @@ type Client struct {
 	forcedErr  error
 	artwork    []byte
 	artworkErr error
+	devices    []domain.AudioDevice
 
 	// Counters useful for assertions.
 	PlayPauseCalls int
@@ -65,6 +66,76 @@ func (c *Client) SetArtworkErr(err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.artworkErr = err
+}
+
+// SetDevices supplies the AirPlay device list the next AirPlayDevices call returns.
+// SetAirPlayDevice mutates the Selected flag on entries in this list.
+func (c *Client) SetDevices(devices []domain.AudioDevice) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.devices = devices
+}
+
+// AirPlayDevices implements music.Client.
+func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return nil, c.forcedErr
+	}
+	if !c.running {
+		return nil, music.ErrNotRunning
+	}
+	// Return a copy so callers can't mutate our internal slice.
+	out := make([]domain.AudioDevice, len(c.devices))
+	copy(out, c.devices)
+	return out, nil
+}
+
+// CurrentAirPlayDevice implements music.Client. Returns the device with
+// Selected=true, or ErrDeviceNotFound if no device is selected.
+func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return domain.AudioDevice{}, c.forcedErr
+	}
+	if !c.running {
+		return domain.AudioDevice{}, music.ErrNotRunning
+	}
+	for _, d := range c.devices {
+		if d.Selected {
+			return d, nil
+		}
+	}
+	return domain.AudioDevice{}, music.ErrDeviceNotFound
+}
+
+// SetAirPlayDevice implements music.Client. Updates the Selected flag in-place:
+// the named device becomes Selected=true, all others become Selected=false.
+// Returns ErrDeviceNotFound if no device with the exact name exists.
+func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	found := false
+	for i := range c.devices {
+		if c.devices[i].Name == name {
+			c.devices[i].Selected = true
+			found = true
+		} else {
+			c.devices[i].Selected = false
+		}
+	}
+	if !found {
+		return music.ErrDeviceNotFound
+	}
+	return nil
 }
 
 // Artwork implements music.Client.

@@ -24,6 +24,7 @@ Usage:
   goove prev                  Skip to the previous track
   goove volume <0..100>       Set the volume (silently clamps out-of-range)
   goove launch                Launch Apple Music if not running
+  goove targets list|get|set [name]   Inspect or change the AirPlay device
   goove help, --help, -h      Show this message
 
 Logs: ~/Library/Logs/goove/goove.log (TUI mode only)
@@ -49,6 +50,8 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 		return cmdLaunch(client, stderr)
 	case "volume":
 		return cmdVolume(args[1:], client, stderr)
+	case "targets":
+		return cmdTargets(args[1:], client, stdout, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usageText)
 		return 0

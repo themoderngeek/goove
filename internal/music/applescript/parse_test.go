@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 )
 
@@ -101,5 +102,119 @@ func TestParseStatusHandlesCRLFOnSentinel(t *testing.T) {
 	}
 	if _, err := parseStatus("NO_TRACK\r\n"); !errors.Is(err, music.ErrNoTrack) {
 		t.Fatalf("err = %v; want ErrNoTrack", err)
+	}
+}
+
+func TestParseAirPlayDevicesEmpty(t *testing.T) {
+	got, err := parseAirPlayDevices("")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d; want 0", len(got))
+	}
+}
+
+func TestParseAirPlayDevicesNotRunning(t *testing.T) {
+	_, err := parseAirPlayDevices("NOT_RUNNING\n")
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestParseAirPlayDevicesSingle(t *testing.T) {
+	raw := "Computer\tcomputer\ttrue\tfalse\ttrue\n"
+	got, err := parseAirPlayDevices(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d; want 1", len(got))
+	}
+	want := domain.AudioDevice{Name: "Computer", Kind: "computer", Available: true, Active: false, Selected: true}
+	if got[0] != want {
+		t.Errorf("got = %+v; want %+v", got[0], want)
+	}
+}
+
+func TestParseAirPlayDevicesMultiple(t *testing.T) {
+	raw := "Computer\tcomputer\ttrue\tfalse\ttrue\n" +
+		"Kitchen Sonos\tAirPlay\ttrue\tfalse\tfalse\n" +
+		"Office\tAirPlay\tfalse\tfalse\tfalse"
+	got, err := parseAirPlayDevices(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len = %d; want 3", len(got))
+	}
+	if got[0].Name != "Computer" || got[1].Name != "Kitchen Sonos" || got[2].Name != "Office" {
+		t.Errorf("names = %q, %q, %q", got[0].Name, got[1].Name, got[2].Name)
+	}
+	if got[2].Available {
+		t.Errorf("Office.Available = true; want false")
+	}
+}
+
+func TestParseAirPlayDevicesParsesBoolFields(t *testing.T) {
+	raw := "X\tspeaker\tfalse\ttrue\tfalse\n"
+	got, _ := parseAirPlayDevices(raw)
+	if got[0].Available || !got[0].Active || got[0].Selected {
+		t.Errorf("got = %+v", got[0])
+	}
+}
+
+func TestParseAirPlayDevicesMalformedReturnsErrUnavailable(t *testing.T) {
+	raw := "X\tspeaker\ttrue\n"
+	_, err := parseAirPlayDevices(raw)
+	if !errors.Is(err, music.ErrUnavailable) {
+		t.Fatalf("err = %v; want ErrUnavailable", err)
+	}
+}
+
+func TestMatchAirPlayDeviceExactWins(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Living Room"},
+		{Name: "Living Room Speakers"},
+	}
+	got, err := matchAirPlayDevice(devices, "Living Room")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Living Room" {
+		t.Errorf("got = %q; want exact 'Living Room'", got.Name)
+	}
+}
+
+func TestMatchAirPlayDeviceCaseInsensitiveSubstring(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Mark's Mac mini"},
+		{Name: "Kitchen Sonos"},
+	}
+	got, err := matchAirPlayDevice(devices, "kitchen")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.Name != "Kitchen Sonos" {
+		t.Errorf("got = %q; want Kitchen Sonos", got.Name)
+	}
+}
+
+func TestMatchAirPlayDeviceNotFoundReturnsErrDeviceNotFound(t *testing.T) {
+	devices := []domain.AudioDevice{{Name: "Computer"}}
+	_, err := matchAirPlayDevice(devices, "Atlantis")
+	if !errors.Is(err, music.ErrDeviceNotFound) {
+		t.Fatalf("err = %v; want ErrDeviceNotFound", err)
+	}
+}
+
+func TestMatchAirPlayDeviceAmbiguousReturnsErrAmbiguousDevice(t *testing.T) {
+	devices := []domain.AudioDevice{
+		{Name: "Kitchen Sonos"},
+		{Name: "Office Sonos"},
+	}
+	_, err := matchAirPlayDevice(devices, "sonos")
+	if !errors.Is(err, music.ErrAmbiguousDevice) {
+		t.Fatalf("err = %v; want ErrAmbiguousDevice", err)
 	}
 }

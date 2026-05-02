@@ -569,3 +569,321 @@ func TestStatusJSONErrorPathStillPrintsToStderr(t *testing.T) {
 		t.Errorf("stderr missing permission message: %q", stderr.String())
 	}
 }
+
+func TestTargetsListPlainConnected(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Active: true},
+		{Name: "Office", Kind: "AirPlay", Available: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Computer") {
+		t.Errorf("stdout missing Computer: %q", got)
+	}
+	if !strings.Contains(got, "*") {
+		t.Errorf("stdout missing selected marker '*': %q", got)
+	}
+	if !strings.Contains(got, "▶") {
+		t.Errorf("stdout missing active marker '▶': %q", got)
+	}
+	if !strings.Contains(got, "unavailable") {
+		t.Errorf("stdout missing 'unavailable' annotation for Office: %q", got)
+	}
+}
+
+func TestTargetsListJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list", "--json"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got []map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d; want 1", len(got))
+	}
+	if got[0]["name"] != "Computer" {
+		t.Errorf("name = %v; want Computer", got[0]["name"])
+	}
+	if got[0]["selected"] != true {
+		t.Errorf("selected = %v; want true", got[0]["selected"])
+	}
+}
+
+func TestTargetsListEmptyPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "(no AirPlay devices visible)") {
+		t.Errorf("stdout missing empty marker: %q", stdout.String())
+	}
+}
+
+func TestTargetsListEmptyJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{})
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"targets", "list", "--json"}, c, &stdout, &stderr)
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("stdout = %q; want '[]'", stdout.String())
+	}
+}
+
+func TestTargetsListNotRunningExit1(t *testing.T) {
+	c := fake.New() // not launched
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "list"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+}
+
+func TestTargetsNoSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a subcommand") {
+		t.Errorf("stderr missing 'requires a subcommand': %q", stderr.String())
+	}
+}
+
+func TestTargetsUnknownSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "frobnicate"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "frobnicate") {
+		t.Errorf("stderr missing unknown subcommand name: %q", stderr.String())
+	}
+}
+
+func TestTargetsHelpFlag(t *testing.T) {
+	for _, arg := range []string{"--help", "-h", "help"} {
+		t.Run(arg, func(t *testing.T) {
+			c := fake.New()
+			var stdout, stderr bytes.Buffer
+
+			code := Run([]string{"targets", arg}, c, &stdout, &stderr)
+			if code != 0 {
+				t.Errorf("exit = %d; want 0", code)
+			}
+			if !strings.Contains(stdout.String(), "manage Music's AirPlay") {
+				t.Errorf("stdout missing targets-specific help: %q", stdout.String())
+			}
+			if stderr.Len() != 0 {
+				t.Errorf("unexpected stderr: %q", stderr.String())
+			}
+		})
+	}
+}
+
+func TestTargetsGetPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+		{Name: "Kitchen Sonos", Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if strings.TrimSpace(stdout.String()) != "Kitchen Sonos" {
+		t.Errorf("stdout = %q; want 'Kitchen Sonos'", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestTargetsGetJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Selected: true},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get", "--json"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if got["name"] != "Kitchen Sonos" {
+		t.Errorf("name = %v; want Kitchen Sonos", got["name"])
+	}
+	if got["selected"] != true {
+		t.Errorf("selected = %v; want true", got["selected"])
+	}
+}
+
+func TestTargetsGetNoneSelectedExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "get"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1 (no device selected)", code)
+	}
+}
+
+func TestTargetsSetSuccess(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: true},
+		{Name: "Kitchen Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Kitchen Sonos"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Kitchen Sonos" {
+		t.Errorf("current = %q; want Kitchen Sonos", cur.Name)
+	}
+}
+
+func TestTargetsSetMissingNameExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a device name") {
+		t.Errorf("stderr missing 'requires a device name': %q", stderr.String())
+	}
+}
+
+func TestTargetsSetNotFoundExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Atlantis"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "airplay device not found: Atlantis") {
+		t.Errorf("stderr missing 'not found: Atlantis': %q", stderr.String())
+	}
+}
+
+func TestTargetsSetAmbiguousExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Kitchen Sonos"},
+		{Name: "Office Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "sonos"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	got := stderr.String()
+	if !strings.Contains(got, "matches multiple") {
+		t.Errorf("stderr missing 'matches multiple': %q", got)
+	}
+	if !strings.Contains(got, "Kitchen Sonos") || !strings.Contains(got, "Office Sonos") {
+		t.Errorf("stderr should list both matches: %q", got)
+	}
+}
+
+func TestTargetsSetExactMatchPriority(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Living Room", Selected: false},
+		{Name: "Living Room Speakers", Selected: false},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "Living Room"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (exact match should win, no ambiguity)", code)
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Living Room" {
+		t.Errorf("current = %q; want exact 'Living Room'", cur.Name)
+	}
+}
+
+func TestTargetsSetSubstringMatch(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "Computer", Selected: true},
+		{Name: "Kitchen Sonos"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"targets", "set", "kitchen"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	cur, _ := c.CurrentAirPlayDevice(context.Background())
+	if cur.Name != "Kitchen Sonos" {
+		t.Errorf("current = %q; want Kitchen Sonos (resolved from 'kitchen')", cur.Name)
+	}
+}

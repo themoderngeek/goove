@@ -66,3 +66,12 @@ func fetchArtwork(client music.Client, renderer art.Renderer, key string) tea.Cm
 		return artworkMsg{key: key, output: out, err: err}
 	}
 }
+
+// fetchDevices runs AirPlayDevices in a goroutine and emits a devicesMsg.
+// Used by the picker on open.
+func fetchDevices(client music.Client) tea.Cmd {
+	return func() tea.Msg {
+		devices, err := client.AirPlayDevices(context.Background())
+		return devicesMsg{devices: devices, err: err}
+	}
+}

@@ -70,3 +70,46 @@ const scriptArtwork = `tell application "Music"
 	end try
 	return "OK"
 end tell`
+
+// scriptAirPlayDevices returns one tab-separated line per AirPlay device:
+//
+//	name\tkind\tavailable\tactive\tselected
+//
+// Empty list ⇒ empty stdout. Returns "NOT_RUNNING" if Music isn't running.
+//
+// NOTE: device names containing literal tab characters (vanishingly unlikely —
+// names come from Apple's UI which doesn't permit tabs) would corrupt parsing.
+const scriptAirPlayDevices = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set out to ""
+	repeat with d in AirPlay devices
+		set ln to (name of d) & tab & (kind of d as text) & tab & ¬
+				  (available of d as text) & tab & (active of d as text) & tab & ¬
+				  (selected of d as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	return out
+end tell`
+
+// scriptSetAirPlay sets the current AirPlay devices to the single named device.
+// %s is the EXACT device name (matched on the Go side first via matchAirPlayDevice).
+// Returns "OK" on success, "NOT_RUNNING" if Music isn't running, "NOT_FOUND" if
+// no device with the exact name exists (race window guard: device disappeared
+// between the list call and the set call).
+const scriptSetAirPlay = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set targetName to "%s"
+	set matches to {}
+	repeat with d in AirPlay devices
+		if (name of d) is equal to targetName then
+			set end of matches to d
+		end if
+	end repeat
+	if (count of matches) is 0 then return "NOT_FOUND"
+	set current AirPlay devices to {item 1 of matches}
+	return "OK"
+end tell`
