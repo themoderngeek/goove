@@ -1962,6 +1962,9 @@ func TestPlaylistsPlayFromStartSilentExit0(t *testing.T) {
 	c := fake.New()
 	c.Launch(context.Background())
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	// Seed at least one track so cmdPlaylistsPlay's mandatory tracks-fetch
+	// (used to detect empty playlists per spec) doesn't fail with "has no tracks".
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{{Title: "Sample"}})
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"playlists", "play", "Liked Songs"}, c, &stdout, &stderr)
