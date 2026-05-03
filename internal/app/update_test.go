@@ -797,3 +797,65 @@ func TestDeviceSetMsgIgnoredWhenPickerClosed(t *testing.T) {
 		t.Error("picker should remain nil")
 	}
 }
+
+func TestKeyLOpensBrowserAndDispatchesFetch(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	mm := updated.(Model)
+	if mm.mode != modeBrowser {
+		t.Errorf("mode = %v; want modeBrowser", mm.mode)
+	}
+	if mm.browser == nil {
+		t.Fatal("browser state nil; want non-nil after pressing 'l'")
+	}
+	if !mm.browser.loadingLists {
+		t.Errorf("browser.loadingLists = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected a fetchPlaylists Cmd; got nil")
+	}
+}
+
+func TestPlaylistsMsgPopulatesState(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{loadingLists: true}
+
+	updated, _ := m.Update(playlistsMsg{
+		playlists: []domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 5}},
+	})
+
+	mm := updated.(Model)
+	if mm.browser.loadingLists {
+		t.Errorf("loadingLists still true after message")
+	}
+	if len(mm.browser.playlists) != 1 || mm.browser.playlists[0].Name != "Liked Songs" {
+		t.Errorf("playlists = %+v", mm.browser.playlists)
+	}
+	if mm.browser.err != nil {
+		t.Errorf("err = %v; want nil", mm.browser.err)
+	}
+}
+
+func TestPlaylistsMsgErrorStoredInState(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{loadingLists: true}
+
+	updated, _ := m.Update(playlistsMsg{err: music.ErrNotRunning})
+
+	mm := updated.(Model)
+	if mm.browser.err == nil {
+		t.Errorf("err = nil; want non-nil")
+	}
+	if mm.browser.loadingLists {
+		t.Errorf("loadingLists still true after error")
+	}
+}
