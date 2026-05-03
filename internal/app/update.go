@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 )
 
@@ -109,6 +110,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.browser.trackCursor = 0
 			}
 		}
+		return m, nil
+
+	case searchDebounceMsg:
+		if m.search == nil || msg.seq != m.search.seq {
+			return m, nil
+		}
+		if m.search.query == "" {
+			return m, nil
+		}
+		m.search.loading = true
+		return m, fetchSearch(m.client, m.search.seq, m.search.query)
+
+	case searchResultsMsg:
+		if m.search == nil || msg.seq != m.search.seq || msg.query != m.search.query {
+			return m, nil
+		}
+		m.search.loading = false
+		m.search.err = msg.err
+		m.search.results = domain.RankSearchResults(msg.result.Tracks, msg.query)
+		m.search.total = msg.result.Total
+		m.search.cursor = 0
 		return m, nil
 	}
 	return m, nil

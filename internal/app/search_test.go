@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/themoderngeek/goove/internal/domain"
+	"github.com/themoderngeek/goove/internal/music"
 	"github.com/themoderngeek/goove/internal/music/fake"
 )
 
@@ -140,5 +141,122 @@ func TestEsc_ClosesSearch(t *testing.T) {
 	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if out.(Model).search != nil {
 		t.Errorf("esc should close search")
+	}
+}
+
+func TestTyping_StartsDebounce_BumpsSeq(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{}
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	mm := out.(Model)
+	if mm.search.query != "s" {
+		t.Errorf("query: got %q want %q", mm.search.query, "s")
+	}
+	if mm.search.seq != 1 {
+		t.Errorf("seq: got %d want 1", mm.search.seq)
+	}
+	if cmd == nil {
+		t.Errorf("expected debounce Cmd, got nil")
+	}
+}
+
+func TestBackspace_RemovesLastRune(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 5}
+	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	mm := out.(Model)
+	if mm.search.query != "stai" {
+		t.Errorf("query: got %q want %q", mm.search.query, "stai")
+	}
+	if mm.search.seq != 6 {
+		t.Errorf("seq: got %d want 6", mm.search.seq)
+	}
+}
+
+func TestBackspace_OnEmptyQuery_NoOp(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{}
+	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if out.(Model).search.query != "" {
+		t.Errorf("expected query still empty")
+	}
+}
+
+func TestDebounceMsg_StaleSeqDropped(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 10}
+	out, cmd := m.Update(searchDebounceMsg{seq: 7})
+	if cmd != nil {
+		t.Errorf("stale debounce should not fire query")
+	}
+	if out.(Model).search.loading {
+		t.Errorf("stale debounce should not set loading")
+	}
+}
+
+func TestDebounceMsg_EmptyQueryDropped(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{seq: 1}
+	_, cmd := m.Update(searchDebounceMsg{seq: 1})
+	if cmd != nil {
+		t.Errorf("empty-query debounce should not fire query")
+	}
+}
+
+func TestDebounceMsg_FreshFiresQuery(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 2}
+	out, cmd := m.Update(searchDebounceMsg{seq: 2})
+	if cmd == nil {
+		t.Errorf("expected SearchTracks Cmd")
+	}
+	if !out.(Model).search.loading {
+		t.Errorf("expected loading=true")
+	}
+}
+
+func TestResultsMsg_StaleSeqDropped(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 10, loading: true}
+	out, _ := m.Update(searchResultsMsg{seq: 5, query: "stair"})
+	mm := out.(Model)
+	if !mm.search.loading {
+		t.Errorf("stale result should not clear loading")
+	}
+}
+
+func TestResultsMsg_QueryMismatchDropped(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 3, loading: true}
+	out, _ := m.Update(searchResultsMsg{seq: 3, query: "different"})
+	if !out.(Model).search.loading {
+		t.Errorf("query-mismatch result should not clear loading")
+	}
+}
+
+func TestResultsMsg_FreshPopulatesAndRanks(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 3, loading: true}
+	result := music.SearchResult{
+		Tracks: []domain.Track{
+			{Title: "Album-only", Album: "Stair Master", PersistentID: "C"},
+			{Title: "Stairway", Artist: "X", Album: "Y", PersistentID: "A"},
+		},
+		Total: 2,
+	}
+	out, _ := m.Update(searchResultsMsg{seq: 3, query: "stair", result: result})
+	mm := out.(Model)
+	if mm.search.loading {
+		t.Errorf("loading should clear on fresh result")
+	}
+	if mm.search.total != 2 || len(mm.search.results) != 2 {
+		t.Errorf("results not populated: %+v", mm.search)
+	}
+	// Title-match ranks first.
+	if mm.search.results[0].PersistentID != "A" {
+		t.Errorf("expected title-match first, got %+v", mm.search.results[0])
+	}
+	if mm.search.cursor != 0 {
+		t.Errorf("cursor should reset to 0, got %d", mm.search.cursor)
 	}
 }

@@ -1,11 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/themoderngeek/goove/internal/music"
 )
 
 // renderSearch is the modal overlay shown when m.search != nil.
@@ -69,13 +73,50 @@ func renderSearch(s *searchState) string {
 
 // handleSearchKey routes keystrokes when the search modal is open. Transport
 // keys do NOT fall through (unlike the browser); the modal is fully captive
-// the way the picker is. Future tasks will extend this with typing,
-// navigation, enter, and r.
+// the way the picker is. Tasks 11 will extend this with arrow keys, enter, and r.
 func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
+	switch msg.Type {
+	case tea.KeyEsc:
 		m.search = nil
 		return m, nil
+
+	case tea.KeyBackspace:
+		if len(m.search.query) == 0 {
+			return m, nil
+		}
+		runes := []rune(m.search.query)
+		m.search.query = string(runes[:len(runes)-1])
+		m.search.seq++
+		m.search.results = nil
+		m.search.total = 0
+		m.search.err = nil
+		return m, scheduleSearchDebounce(m.search.seq)
+
+	case tea.KeyRunes:
+		m.search.query += string(msg.Runes)
+		m.search.seq++
+		m.search.results = nil
+		m.search.total = 0
+		m.search.err = nil
+		return m, scheduleSearchDebounce(m.search.seq)
 	}
 	return m, nil
+}
+
+const searchDebounceDuration = 250 * time.Millisecond
+
+// scheduleSearchDebounce returns a tea.Tick Cmd that emits a searchDebounceMsg
+// stamped with the given seq.
+func scheduleSearchDebounce(seq uint64) tea.Cmd {
+	return tea.Tick(searchDebounceDuration, func(time.Time) tea.Msg {
+		return searchDebounceMsg{seq: seq}
+	})
+}
+
+// fetchSearch invokes SearchTracks in a goroutine and emits a searchResultsMsg.
+func fetchSearch(client music.Client, seq uint64, query string) tea.Cmd {
+	return func() tea.Msg {
+		res, err := client.SearchTracks(context.Background(), query)
+		return searchResultsMsg{seq: seq, query: query, result: res, err: err}
+	}
 }
