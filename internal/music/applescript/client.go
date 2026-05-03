@@ -221,9 +221,32 @@ func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]dom
 	return parsePlaylistTracks(string(out))
 }
 
-// PlayPlaylist implements music.Client. Real impl in Task 9.
+// PlayPlaylist implements music.Client. fromTrackIndex is 0-based; 0 means
+// "play from the start" and uses the play-playlist form. Any positive value
+// is converted to a 1-based AppleScript track number and uses the play-track
+// form.
 func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrackIndex int) error {
-	return music.ErrUnavailable
+	var script string
+	if fromTrackIndex <= 0 {
+		script = fmt.Sprintf(scriptPlayPlaylistFromStart, playlistName)
+	} else {
+		appleIdx := fromTrackIndex + 1
+		script = fmt.Sprintf(scriptPlayPlaylistFromTrack, appleIdx, playlistName)
+	}
+	out, err := c.run(ctx, script)
+	if err != nil {
+		return err
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "OK":
+		return nil
+	case "NOT_RUNNING":
+		return music.ErrNotRunning
+	case "NOT_FOUND":
+		return music.ErrPlaylistNotFound
+	default:
+		return fmt.Errorf("%w: unexpected scriptPlayPlaylist output: %q", music.ErrUnavailable, out)
+	}
 }
 
 // Compile-time check that *Client implements music.Client.

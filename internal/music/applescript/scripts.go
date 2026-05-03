@@ -189,3 +189,30 @@ const scriptPlaylistTracks = `tell application "Music"
 	end repeat
 	return out
 end tell`
+
+// scriptPlayPlaylistFromStart starts playback of the named playlist from track 1.
+// %s is the EXACT playlist name. Uses the literal `play playlist "<name>"`
+// form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+const scriptPlayPlaylistFromStart = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		play playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
+	return "OK"
+end tell`
+
+// scriptPlayPlaylistFromTrack starts playback of the named playlist from a
+// specific 1-based track index. %s is the EXACT playlist name; %d is the
+// 1-based track number. Uses the literal `play track N of playlist "<name>"`
+// form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+const scriptPlayPlaylistFromTrack = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		play track %d of playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
+	return "OK"
+end tell`

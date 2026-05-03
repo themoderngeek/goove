@@ -504,3 +504,62 @@ func TestPlaylistTracksNotRunning(t *testing.T) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
 	}
 }
+
+func TestPlayPlaylistFromStartUsesPlayPlaylistForm(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(r.script, "play playlist") {
+		t.Errorf("script should use 'play playlist' form for fromIdx=0; got %q", r.script)
+	}
+	if strings.Contains(r.script, "play track") {
+		t.Errorf("script should NOT use 'play track' form for fromIdx=0; got %q", r.script)
+	}
+	if !strings.Contains(r.script, "Liked Songs") {
+		t.Errorf("script missing playlist name: %q", r.script)
+	}
+}
+
+func TestPlayPlaylistFromIndexUsesPlayTrackForm(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 4)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	// fromIdx=4 (0-based) should become AppleScript "track 5" (1-based).
+	if !strings.Contains(r.script, "play track 5") {
+		t.Errorf("script should use 'play track 5' for fromIdx=4; got %q", r.script)
+	}
+}
+
+func TestPlayPlaylistOKReturnsNil(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+	if err := c.PlayPlaylist(context.Background(), "Liked Songs", 0); err != nil {
+		t.Errorf("err = %v; want nil", err)
+	}
+}
+
+func TestPlayPlaylistNotFoundReturnsErrPlaylistNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(r)
+	err := c.PlayPlaylist(context.Background(), "Atlantis", 0)
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlayPlaylistNotRunningReturnsErrNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
