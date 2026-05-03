@@ -249,5 +249,16 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 	}
 }
 
+// SearchTracks is implemented in Task 5 — stub returns ErrUnavailable so the
+// interface contract is satisfied while this is being built up.
+func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
+	return music.SearchResult{}, music.ErrUnavailable
+}
+
+// PlayTrack is implemented in Task 6 — stub returns ErrUnavailable.
+func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
+	return music.ErrUnavailable
+}
+
 // Compile-time check that *Client implements music.Client.
 var _ music.Client = (*Client)(nil)

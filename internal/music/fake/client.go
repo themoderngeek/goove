@@ -28,6 +28,14 @@ type Client struct {
 	playlistTracks     map[string][]domain.Track
 	playPlaylistRecord []playPlaylistCall
 
+	// Set by SetTracks; queried by SearchTracks. Distinct from playlistTracks
+	// because library search is a property of the whole library, not of any
+	// one playlist.
+	libraryTracks []domain.Track
+
+	// Records of PlayTrack invocations.
+	playTrackRecord []playTrackCall
+
 	// Counters useful for assertions.
 	PlayPauseCalls    int
 	PlayCalls         int
@@ -37,12 +45,17 @@ type Client struct {
 	SetVolumeCalls    int
 	LaunchCalls       int
 	PlayPlaylistCalls int
+	PlayTrackCalls    int
 }
 
 // playPlaylistCall records one PlayPlaylist invocation.
 type playPlaylistCall struct {
 	Name    string
 	FromIdx int
+}
+
+type playTrackCall struct {
+	PersistentID string
 }
 
 func New() *Client {
@@ -381,6 +394,32 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 		Name: playlistName, FromIdx: fromTrackIndex,
 	})
 	return nil
+}
+
+// SetLibraryTracks supplies the in-memory library searched by SearchTracks.
+func (c *Client) SetLibraryTracks(tracks []domain.Track) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.libraryTracks = tracks
+}
+
+// PlayTrackRecord returns a copy of the recorded PlayTrack invocations.
+func (c *Client) PlayTrackRecord() []playTrackCall {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]playTrackCall, len(c.playTrackRecord))
+	copy(out, c.playTrackRecord)
+	return out
+}
+
+// SearchTracks is implemented in Task 4 — stub.
+func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
+	return music.SearchResult{}, music.ErrUnavailable
+}
+
+// PlayTrack is implemented in Task 4 — stub.
+func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
+	return music.ErrUnavailable
 }
 
 var _ music.Client = (*Client)(nil)
