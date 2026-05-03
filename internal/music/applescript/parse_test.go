@@ -218,3 +218,64 @@ func TestMatchAirPlayDeviceAmbiguousReturnsErrAmbiguousDevice(t *testing.T) {
 		t.Fatalf("err = %v; want ErrAmbiguousDevice", err)
 	}
 }
+
+func TestParsePlaylistsEmpty(t *testing.T) {
+	got, err := parsePlaylists("")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d; want 0", len(got))
+	}
+}
+
+func TestParsePlaylistsNotRunning(t *testing.T) {
+	_, err := parsePlaylists("NOT_RUNNING\n")
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestParsePlaylistsSingle(t *testing.T) {
+	raw := "Liked Songs\tuser\t42\n"
+	got, err := parsePlaylists(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := domain.Playlist{Name: "Liked Songs", Kind: "user", TrackCount: 42}
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("got = %+v; want [%+v]", got, want)
+	}
+}
+
+func TestParsePlaylistsMultiple(t *testing.T) {
+	raw := "Liked Songs\tuser\t42\n" +
+		"Workout\tsubscription\t12\n" +
+		"90s Mix\tuser\t30"
+	got, err := parsePlaylists(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len = %d; want 3", len(got))
+	}
+	if got[1].Kind != "subscription" || got[1].TrackCount != 12 {
+		t.Errorf("got[1] = %+v", got[1])
+	}
+}
+
+func TestParsePlaylistsSkipsEmptyName(t *testing.T) {
+	raw := "\tuser\t0\n" + "Liked Songs\tuser\t42\n"
+	got, _ := parsePlaylists(raw)
+	if len(got) != 1 || got[0].Name != "Liked Songs" {
+		t.Errorf("got = %+v; expected empty-name row to be skipped", got)
+	}
+}
+
+func TestParsePlaylistsSkipsMalformedRow(t *testing.T) {
+	raw := "Bad Row\tuser\n" + "Liked Songs\tuser\t42\n"
+	got, _ := parsePlaylists(raw)
+	if len(got) != 1 || got[0].Name != "Liked Songs" {
+		t.Errorf("got = %+v; expected malformed row to be skipped", got)
+	}
+}
