@@ -57,7 +57,7 @@ func renderSearch(s *searchState) string {
 
 	footerText := " ⏎ play   esc cancel"
 	if len(s.results) > 0 {
-		footerText = " ↑/↓ navigate   ⏎ play   r refresh   esc cancel"
+		footerText = " ↑/↓ navigate   ⏎ play   ^R refresh   esc cancel"
 	}
 	footer := footerStyle.Render(footerText)
 
@@ -65,7 +65,7 @@ func renderSearch(s *searchState) string {
 	if s.err != nil {
 		// Override the footer label to "retry" while an error is showing.
 		errFooter := errorStyle.Render("error: " + s.err.Error())
-		footerText = " ⏎ play   r retry   esc cancel"
+		footerText = " ⏎ play   ^R retry   esc cancel"
 		out = card + "\n" + footerStyle.Render(footerText) + "\n" + errFooter
 	}
 	return lipgloss.NewStyle().Margin(0, 2).Render(out)
@@ -80,10 +80,8 @@ func playSearchSelection(client music.Client, seq uint64, persistentID string) t
 
 // handleSearchKey routes keystrokes when the search modal is open. Transport
 // keys do NOT fall through (unlike the browser); the modal is fully captive
-// the way the picker is.
-// NOTE: 'r' is treated as refresh inside the modal (not appended to the query).
-// This is a documented trade-off: queries containing 'r' will trigger a refresh
-// instead of appending the character.
+// the way the picker is. Refresh is bound to ctrl+R so plain rune keys
+// (including 'r') always append to the query.
 func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:
@@ -116,6 +114,14 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		pid := m.search.results[m.search.cursor].PersistentID
 		return m, playSearchSelection(m.client, m.search.seq, pid)
+	case tea.KeyCtrlR:
+		if m.search.query == "" {
+			return m, nil
+		}
+		m.search.seq++
+		m.search.loading = true
+		m.search.err = nil
+		return m, fetchSearch(m.client, m.search.seq, m.search.query)
 	case tea.KeySpace:
 		m.search.query += " "
 		m.search.seq++
@@ -124,16 +130,6 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.search.err = nil
 		return m, scheduleSearchDebounce(m.search.seq)
 	case tea.KeyRunes:
-		// Single-rune special-case: 'r' is refresh; everything else appends.
-		if len(msg.Runes) == 1 && msg.Runes[0] == 'r' {
-			if m.search.query == "" {
-				return m, nil
-			}
-			m.search.seq++
-			m.search.loading = true
-			m.search.err = nil
-			return m, fetchSearch(m.client, m.search.seq, m.search.query)
-		}
 		m.search.query += string(msg.Runes)
 		m.search.seq++
 		m.search.results = nil

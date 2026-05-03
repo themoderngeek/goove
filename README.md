@@ -44,7 +44,7 @@ If you say no, you can re-enable it under
 | `p` | previous track |
 | `+` / `=` | volume +5% |
 | `-` | volume −5% |
-| `/` | open search modal (modal keys: type to query, ↑↓ nav, ⏎ play, `r` refresh, esc cancel) |
+| `/` | open search modal (modal keys: type to query, ↑↓ nav, ⏎ play, `^R` refresh, esc cancel) |
 | `o` | open output (AirPlay) picker (picker keys: ↑↓ nav, ⏎ select, esc cancel) |
 | `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, `r` refresh, esc back) |
 | `q` | quit |

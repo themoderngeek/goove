@@ -72,8 +72,8 @@ func TestRenderSearch_ErrorFooter(t *testing.T) {
 	if !strings.Contains(got, "error: boom") {
 		t.Errorf("missing error footer:\n%s", got)
 	}
-	if !strings.Contains(got, "r retry") {
-		t.Errorf("error state should label r as retry:\n%s", got)
+	if !strings.Contains(got, "^R retry") {
+		t.Errorf("error state should label ^R as retry:\n%s", got)
 	}
 }
 
@@ -355,12 +355,12 @@ func TestSearchPlayedMsg_Error_KeepsModalAndShowsErr(t *testing.T) {
 	}
 }
 
-func TestR_FiresQueryImmediately(t *testing.T) {
+func TestCtrlR_FiresQueryImmediately(t *testing.T) {
 	m, _ := connectedTestModel(t)
 	m.search = &searchState{query: "stair", seq: 3}
-	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Errorf("expected fetchSearch Cmd from r")
+		t.Errorf("expected fetchSearch Cmd from ctrl+R")
 	}
 	if !out.(Model).search.loading {
 		t.Errorf("expected loading=true")
@@ -370,12 +370,31 @@ func TestR_FiresQueryImmediately(t *testing.T) {
 	}
 }
 
-func TestR_EmptyQuery_NoOp(t *testing.T) {
+func TestCtrlR_EmptyQuery_NoOp(t *testing.T) {
 	m, _ := connectedTestModel(t)
 	m.search = &searchState{}
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
-		t.Errorf("expected no Cmd from r with empty query")
+		t.Errorf("expected no Cmd from ctrl+R with empty query")
+	}
+}
+
+func TestR_TypedAsRune_AppendsToQuery(t *testing.T) {
+	// Plain 'r' (no modifier) must append to the query — this is the bug fix
+	// that motivated moving refresh to ctrl+R. Without this, words like
+	// "radiohead" or "bruce" cannot be typed into the search box.
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "Bru", seq: 1}
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm := out.(Model)
+	if mm.search.query != "Brur" {
+		t.Errorf("expected query 'Brur', got %q", mm.search.query)
+	}
+	if mm.search.seq != 2 {
+		t.Errorf("expected seq=2, got %d", mm.search.seq)
+	}
+	if cmd == nil {
+		t.Errorf("expected debounce Cmd")
 	}
 }
 
