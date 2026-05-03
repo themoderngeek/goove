@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
@@ -300,6 +301,106 @@ func TestPlayNotRunningReturnsErrNotRunning(t *testing.T) {
 func TestPauseNotRunningReturnsErrNotRunning(t *testing.T) {
 	c := New() // not launched
 	err := c.Pause(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestPlaylistsReturnsSeededList(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Liked Songs", Kind: "user", TrackCount: 3},
+		{Name: "Workout", Kind: "subscription", TrackCount: 5},
+	})
+
+	got, err := c.Playlists(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Name != "Liked Songs" || got[1].Name != "Workout" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistsNotRunningReturnsErrNotRunning(t *testing.T) {
+	c := New()
+	_, err := c.Playlists(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestPlaylistTracksReturnsSeededTracks(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{
+		{Title: "A", Artist: "X", Duration: 90 * time.Second},
+		{Title: "B", Artist: "Y", Duration: 120 * time.Second},
+	})
+
+	got, err := c.PlaylistTracks(context.Background(), "Liked Songs")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Title != "A" || got[1].Duration != 120*time.Second {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistTracksUnknownNameReturnsErrPlaylistNotFound(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	_, err := c.PlaylistTracks(context.Background(), "Atlantis")
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlayPlaylistRecordsInvocation(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 3}})
+
+	if err := c.PlayPlaylist(context.Background(), "Liked Songs", 0); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if c.PlayPlaylistCalls != 1 {
+		t.Errorf("PlayPlaylistCalls = %d; want 1", c.PlayPlaylistCalls)
+	}
+	rec := c.PlayPlaylistRecord()
+	if len(rec) != 1 || rec[0].Name != "Liked Songs" || rec[0].FromIdx != 0 {
+		t.Errorf("record = %+v", rec)
+	}
+}
+
+func TestPlayPlaylistFromIndexRecorded(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+
+	c.PlayPlaylist(context.Background(), "Liked Songs", 4)
+
+	rec := c.PlayPlaylistRecord()
+	if rec[0].FromIdx != 4 {
+		t.Errorf("FromIdx = %d; want 4", rec[0].FromIdx)
+	}
+}
+
+func TestPlayPlaylistUnknownNameReturnsErrPlaylistNotFound(t *testing.T) {
+	c := New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+
+	err := c.PlayPlaylist(context.Background(), "Atlantis", 0)
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlayPlaylistNotRunningReturnsErrNotRunning(t *testing.T) {
+	c := New()
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
 	if !errors.Is(err, music.ErrNotRunning) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
 	}

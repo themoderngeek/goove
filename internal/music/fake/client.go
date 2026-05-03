@@ -12,27 +12,37 @@ import (
 // Client is an in-memory implementation of music.Client used in tests.
 // Tests script its state via Launch / SetTrack / SimulateError.
 type Client struct {
-	mu        sync.Mutex
-	running   bool
-	hasTrack  bool
-	track     domain.Track
-	duration  time.Duration
-	position  time.Duration
-	playing   bool
-	volume    int
-	forcedErr  error
-	artwork    []byte
-	artworkErr error
-	devices    []domain.AudioDevice
+	mu                 sync.Mutex
+	running            bool
+	hasTrack           bool
+	track              domain.Track
+	duration           time.Duration
+	position           time.Duration
+	playing            bool
+	volume             int
+	forcedErr          error
+	artwork            []byte
+	artworkErr         error
+	devices            []domain.AudioDevice
+	playlists          []domain.Playlist
+	playlistTracks     map[string][]domain.Track
+	playPlaylistRecord []playPlaylistCall
 
 	// Counters useful for assertions.
-	PlayPauseCalls int
-	PlayCalls      int
-	PauseCalls     int
-	NextCalls      int
-	PrevCalls      int
-	SetVolumeCalls int
-	LaunchCalls    int
+	PlayPauseCalls    int
+	PlayCalls         int
+	PauseCalls        int
+	NextCalls         int
+	PrevCalls         int
+	SetVolumeCalls    int
+	LaunchCalls       int
+	PlayPlaylistCalls int
+}
+
+// playPlaylistCall records one PlayPlaylist invocation.
+type playPlaylistCall struct {
+	Name    string
+	FromIdx int
 }
 
 func New() *Client {
@@ -286,19 +296,91 @@ func (c *Client) SetVolume(ctx context.Context, percent int) error {
 	return nil
 }
 
-// Playlists implements music.Client. Real impl in Task 4.
+// SetPlaylists supplies the playlist list returned by Playlists.
+func (c *Client) SetPlaylists(playlists []domain.Playlist) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.playlists = playlists
+}
+
+// SetPlaylistTracks supplies the tracks returned by PlaylistTracks(name).
+func (c *Client) SetPlaylistTracks(name string, tracks []domain.Track) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.playlistTracks == nil {
+		c.playlistTracks = make(map[string][]domain.Track)
+	}
+	c.playlistTracks[name] = tracks
+}
+
+// PlayPlaylistRecord returns a copy of the recorded PlayPlaylist invocations.
+func (c *Client) PlayPlaylistRecord() []playPlaylistCall {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]playPlaylistCall, len(c.playPlaylistRecord))
+	copy(out, c.playPlaylistRecord)
+	return out
+}
+
+// Playlists implements music.Client.
 func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
-	return nil, music.ErrUnavailable
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return nil, c.forcedErr
+	}
+	if !c.running {
+		return nil, music.ErrNotRunning
+	}
+	out := make([]domain.Playlist, len(c.playlists))
+	copy(out, c.playlists)
+	return out, nil
 }
 
-// PlaylistTracks implements music.Client. Real impl in Task 4.
+// PlaylistTracks implements music.Client.
 func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error) {
-	return nil, music.ErrUnavailable
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return nil, c.forcedErr
+	}
+	if !c.running {
+		return nil, music.ErrNotRunning
+	}
+	tracks, ok := c.playlistTracks[playlistName]
+	if !ok {
+		return nil, music.ErrPlaylistNotFound
+	}
+	out := make([]domain.Track, len(tracks))
+	copy(out, tracks)
+	return out, nil
 }
 
-// PlayPlaylist implements music.Client. Real impl in Task 4.
+// PlayPlaylist implements music.Client.
 func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrackIndex int) error {
-	return music.ErrUnavailable
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	known := false
+	for _, p := range c.playlists {
+		if p.Name == playlistName {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return music.ErrPlaylistNotFound
+	}
+	c.PlayPlaylistCalls++
+	c.playPlaylistRecord = append(c.playPlaylistRecord, playPlaylistCall{
+		Name: playlistName, FromIdx: fromTrackIndex,
+	})
+	return nil
 }
 
 var _ music.Client = (*Client)(nil)
