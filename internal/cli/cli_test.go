@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
@@ -1116,5 +1117,149 @@ func TestPlaylistsHelpFlag(t *testing.T) {
 				t.Errorf("stdout missing playlists-specific help: %q", stdout.String())
 			}
 		})
+	}
+}
+
+func TestPlaylistsTracksPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 2}})
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{
+		{Title: "Stairway", Artist: "Led Zeppelin", Album: "IV", Duration: 482 * time.Second},
+		{Title: "Black Dog", Artist: "Led Zeppelin", Album: "IV", Duration: 296 * time.Second},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "Liked Songs"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "1.") || !strings.Contains(got, "2.") {
+		t.Errorf("stdout missing 1-based numbering: %q", got)
+	}
+	if !strings.Contains(got, "Stairway") || !strings.Contains(got, "Led Zeppelin") {
+		t.Errorf("stdout missing track fields: %q", got)
+	}
+	if !strings.Contains(got, "8:02") {
+		t.Errorf("stdout missing duration 8:02: %q", got)
+	}
+}
+
+func TestPlaylistsTracksJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{
+		{Title: "A", Artist: "B", Album: "C", Duration: 100 * time.Second},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "Liked Songs", "--json"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got []map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d; want 1", len(got))
+	}
+	if got[0]["index"] != float64(1) {
+		t.Errorf("index = %v; want 1", got[0]["index"])
+	}
+	if got[0]["title"] != "A" {
+		t.Errorf("title = %v; want A", got[0]["title"])
+	}
+	if got[0]["duration_sec"] != float64(100) {
+		t.Errorf("duration_sec = %v; want 100", got[0]["duration_sec"])
+	}
+}
+
+func TestPlaylistsTracksMissingNameExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a playlist name") {
+		t.Errorf("stderr missing 'requires a playlist name': %q", stderr.String())
+	}
+}
+
+func TestPlaylistsTracksNotFoundExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "Atlantis"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "playlist not found: Atlantis") {
+		t.Errorf("stderr missing 'playlist not found': %q", stderr.String())
+	}
+}
+
+func TestPlaylistsTracksAmbiguousExit1(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Workout"},
+		{Name: "Workout 2025"},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "work"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	got := stderr.String()
+	if !strings.Contains(got, "matches multiple") {
+		t.Errorf("stderr missing 'matches multiple': %q", got)
+	}
+	if !strings.Contains(got, "Workout") || !strings.Contains(got, "Workout 2025") {
+		t.Errorf("stderr should list both matches: %q", got)
+	}
+}
+
+func TestPlaylistsTracksExactMatchPriority(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Workout"},
+		{Name: "Workout 2025"},
+	})
+	c.SetPlaylistTracks("Workout", []domain.Track{{Title: "OnlyTrack"}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "Workout"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (exact match should win)", code)
+	}
+	if !strings.Contains(stdout.String(), "OnlyTrack") {
+		t.Errorf("stdout did not show tracks for exact-match playlist: %q", stdout.String())
+	}
+}
+
+func TestPlaylistsTracksSubstringMatch(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Liked Songs"},
+		{Name: "Workout"},
+	})
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{{Title: "T"}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "liked"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0 (substring should match)", code)
 	}
 }
