@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -156,4 +158,163 @@ func browserCursorDown(m Model) Model {
 		}
 	}
 	return m
+}
+
+// renderBrowser returns the full-screen string for modeBrowser. Layout is two
+// columns separated by a vertical bar. Long lists scroll via window-clamping
+// around the cursor. Width comes from the Model.
+func renderBrowser(m Model) string {
+	if m.browser == nil {
+		return "" // shouldn't happen, but guard anyway
+	}
+	// Reserve some terminal-edge padding; everything else is split.
+	totalWidth := m.width
+	if totalWidth < 40 {
+		totalWidth = 80 // safe default
+	}
+	leftWidth := totalWidth/2 - 1
+	rightWidth := totalWidth - leftWidth - 3 // 3 for " │ "
+	height := m.height - 4
+	if height < 5 {
+		height = 20
+	}
+
+	leftLines := renderLeftPane(m.browser, leftWidth, height)
+	rightLines := renderRightPane(m.browser, rightWidth, height)
+
+	var out strings.Builder
+	out.WriteString("┌─ goove · browser ")
+	out.WriteString(strings.Repeat("─", maxInt(0, totalWidth-20)))
+	out.WriteString("┐\n")
+	for i := 0; i < height; i++ {
+		left := ""
+		if i < len(leftLines) {
+			left = leftLines[i]
+		}
+		right := ""
+		if i < len(rightLines) {
+			right = rightLines[i]
+		}
+		fmt.Fprintf(&out, "│ %-*s │ %-*s │\n", leftWidth, left, rightWidth, right)
+	}
+	out.WriteString("└")
+	out.WriteString(strings.Repeat("─", totalWidth-2))
+	out.WriteString("┘\n")
+	out.WriteString(" ↑↓: nav   tab: pane   ⏎: play   r: refetch   esc: back   space: ⏯\n")
+	return out.String()
+}
+
+func renderLeftPane(b *browserState, width, height int) []string {
+	header := "Playlists"
+	if b.pane == leftPane {
+		header = "▸ Playlists"
+	}
+	out := []string{header, ""}
+	if b.loadingLists {
+		out = append(out, "Loading…")
+		return out
+	}
+	if b.err != nil && b.pane == leftPane {
+		out = append(out, "error: "+b.err.Error())
+		return out
+	}
+	if len(b.playlists) == 0 {
+		out = append(out, "(no playlists)")
+		return out
+	}
+	visibleRows := height - 2
+	start := scrollWindow(b.playlistCursor, visibleRows, len(b.playlists))
+	for i := start; i < len(b.playlists) && i-start < visibleRows; i++ {
+		marker := "  "
+		if i == b.playlistCursor && b.pane == leftPane {
+			marker = "▸ "
+		}
+		row := fmt.Sprintf("%s%s", marker, b.playlists[i].Name)
+		if b.playlists[i].Kind == "subscription" {
+			row += " (sub)"
+		}
+		out = append(out, truncate(row, width))
+	}
+	return out
+}
+
+func renderRightPane(b *browserState, width, height int) []string {
+	title := "Tracks"
+	if len(b.playlists) > 0 {
+		title = "Tracks — " + b.playlists[b.playlistCursor].Name
+	}
+	if b.pane == rightPane {
+		title = "▸ " + title
+	}
+	out := []string{title, ""}
+	if b.pane == rightPane && b.loadingTracks {
+		out = append(out, "Loading…")
+		return out
+	}
+	if b.pane == rightPane && b.err != nil {
+		out = append(out, "error: "+b.err.Error())
+		return out
+	}
+	current := ""
+	if len(b.playlists) > 0 {
+		current = b.playlists[b.playlistCursor].Name
+	}
+	if b.tracksFor != current {
+		out = append(out, "(press tab to load)")
+		return out
+	}
+	if len(b.tracks) == 0 {
+		out = append(out, "(no tracks)")
+		return out
+	}
+	visibleRows := height - 2
+	start := scrollWindow(b.trackCursor, visibleRows, len(b.tracks))
+	for i := start; i < len(b.tracks) && i-start < visibleRows; i++ {
+		marker := "  "
+		if i == b.trackCursor && b.pane == rightPane {
+			marker = "▸ "
+		}
+		t := b.tracks[i]
+		row := fmt.Sprintf("%s%d. %s — %s", marker, i+1, t.Title, t.Artist)
+		out = append(out, truncate(row, width))
+	}
+	return out
+}
+
+// scrollWindow returns the top-of-window index such that cursor is visible
+// within a viewport of size visible across total items. Cursor stays roughly
+// centred when possible.
+func scrollWindow(cursor, visible, total int) int {
+	if total <= visible {
+		return 0
+	}
+	half := visible / 2
+	start := cursor - half
+	if start < 0 {
+		start = 0
+	}
+	if start+visible > total {
+		start = total - visible
+	}
+	return start
+}
+
+func truncate(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if len(s) <= width {
+		return s
+	}
+	if width <= 1 {
+		return s[:width]
+	}
+	return s[:width-1] + "…"
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

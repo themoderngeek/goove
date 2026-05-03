@@ -35,6 +35,9 @@ func (m Model) View() string {
 	if m.picker != nil {
 		return renderPicker(m.picker)
 	}
+	if m.mode == modeBrowser {
+		return renderBrowser(m)
+	}
 	if m.width > 0 && m.width < compactThreshold {
 		return renderCompact(m)
 	}
