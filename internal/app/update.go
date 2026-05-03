@@ -80,6 +80,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Success: close the picker. Next 1Hz status tick re-renders the player view.
 		m.picker = nil
 		return m, nil
+
+	case playlistsMsg:
+		if m.browser != nil {
+			m.browser.loadingLists = false
+			m.browser.err = msg.err
+			if msg.err == nil {
+				m.browser.playlists = msg.playlists
+				if m.browser.playlistCursor >= len(msg.playlists) {
+					m.browser.playlistCursor = 0
+				}
+			}
+		}
+		return m, nil
+
+	case playlistTracksMsg:
+		if m.browser != nil && len(m.browser.playlists) > 0 {
+			current := m.browser.playlists[m.browser.playlistCursor].Name
+			if msg.name != current {
+				// Stale result — the cursor has moved since this fetch was issued.
+				return m, nil
+			}
+			m.browser.loadingTracks = false
+			m.browser.err = msg.err
+			if msg.err == nil {
+				m.browser.tracks = msg.tracks
+				m.browser.tracksFor = msg.name
+				m.browser.trackCursor = 0
+			}
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -128,6 +158,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handlePickerKey(msg)
 	}
 
+	if m.mode == modeBrowser {
+		if mm, cmd, handled := handleBrowserKey(m, msg); handled {
+			return mm, cmd
+		}
+		// Fall through to the now-playing key handler for transport keys etc.
+	}
+
 	switch msg.String() {
 	case "q":
 		return m, tea.Quit
@@ -159,6 +196,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		m.picker = &pickerState{loading: true}
 		return m, fetchDevices(m.client)
+
+	case "l":
+		// 'l' opens the playlist browser. No-op when already in browser
+		// (spec: 'l' in browser is a no-op; esc returns to now-playing).
+		if m.mode == modeBrowser {
+			return m, nil
+		}
+		m.mode = modeBrowser
+		m.browser = &browserState{loadingLists: true}
+		return m, fetchPlaylists(m.client)
 	}
 	return m, nil
 }

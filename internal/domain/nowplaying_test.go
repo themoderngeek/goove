@@ -80,3 +80,17 @@ func TestDisplayedPosition(t *testing.T) {
 		})
 	}
 }
+
+func TestTrackDurationDefaultsToZero(t *testing.T) {
+	tr := Track{Title: "X"}
+	if tr.Duration != 0 {
+		t.Errorf("Duration zero-value = %v; want 0", tr.Duration)
+	}
+}
+
+func TestTrackCarriesDuration(t *testing.T) {
+	tr := Track{Title: "X", Duration: 90 * time.Second}
+	if tr.Duration != 90*time.Second {
+		t.Errorf("Duration = %v; want 90s", tr.Duration)
+	}
+}

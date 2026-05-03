@@ -14,6 +14,7 @@ const scriptLaunch = `tell application "Music" to launch`
 //   - "NOT_RUNNING"
 //   - "NO_TRACK"
 //   - 7 newline-separated lines: title, artist, album, position, duration, state, volume
+//
 // NOTE: linefeed (U+000A) is the field delimiter. Track metadata containing a
 // literal newline will corrupt the parsed output. Accepted as an MVP limitation.
 const scriptStatus = `tell application "Music"
@@ -47,6 +48,7 @@ const scriptSetVolume = `tell application "Music" to set sound volume to %d`
 //   - "NOT_RUNNING"  — Music isn't running
 //   - "NO_ART"       — current track has no embedded artwork
 //   - "OK"           — bytes written to %s
+//
 // The "raw data of artwork" form returns direct PNG bytes on macOS 26;
 // validated against Music.app 26.4.1 (800x800 PNG).
 const scriptArtwork = `tell application "Music"
@@ -116,3 +118,114 @@ end tell`
 
 const scriptPlay = `tell application "Music" to play`
 const scriptPause = `tell application "Music" to pause`
+
+// scriptPlaylists returns one tab-separated line per user/subscription playlist:
+//
+//	name\tkind\ttrack_count
+//
+// kind is "user" or "subscription". Iterates user playlists then subscription
+// playlists in a single tell block. Empty list ⇒ empty stdout. Returns
+// "NOT_RUNNING" if Music isn't running.
+//
+// NOTE: playlist names containing tabs or linefeeds would corrupt parsing —
+// Apple's UI does not permit either, accepted MVP limitation (matches
+// scriptAirPlayDevices).
+const scriptPlaylists = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set out to ""
+	repeat with p in user playlists
+		set ln to (name of p) & tab & "user" & tab & ((count of tracks of p) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	repeat with p in subscription playlists
+		set ln to (name of p) & tab & "subscription" & tab & ((count of tracks of p) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	return out
+end tell`
+
+// scriptPlaylistTracks returns one tab-separated line per track of the named
+// playlist:
+//
+//	title\tartist\talbum\tduration_seconds
+//
+// %s is the EXACT playlist name. Returns "NOT_RUNNING" if Music isn't running,
+// "NOT_FOUND" if no playlist with that name exists.
+//
+// NOTE: track names containing tabs or linefeeds would corrupt parsing —
+// accepted MVP limitation.
+//
+// SECURITY: the playlist name is interpolated unescaped. AppleScript-string
+// escaping (backslash, double-quote) is intentionally NOT performed for v1.
+// Callers must trust that names come from the user's own Music library
+// (matches scriptSetAirPlay's existing trust model).
+const scriptPlaylistTracks = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set targetName to "%s"
+	set matches to {}
+	repeat with p in user playlists
+		if (name of p) is equal to targetName then
+			set end of matches to p
+		end if
+	end repeat
+	if (count of matches) is 0 then
+		repeat with p in subscription playlists
+			if (name of p) is equal to targetName then
+				set end of matches to p
+			end if
+		end repeat
+	end if
+	if (count of matches) is 0 then return "NOT_FOUND"
+	set thePlaylist to item 1 of matches
+	set out to ""
+	repeat with t in tracks of thePlaylist
+		set ln to (name of t) & tab & (artist of t) & tab & (album of t) & tab & ((duration of t) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	return out
+end tell`
+
+// scriptPlayPlaylistFromStart starts playback of the named playlist from track 1.
+// %s is the EXACT playlist name. Uses the literal `play playlist "<name>"`
+// form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+//
+// SECURITY: see scriptPlaylistTracks — the name is interpolated unescaped;
+// trust assumption is that it came from the user's own Music library.
+const scriptPlayPlaylistFromStart = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		play playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
+	return "OK"
+end tell`
+
+// scriptPlayPlaylistFromTrack starts playback of the named playlist from a
+// specific 1-based track index. %s is the EXACT playlist name; %d is the
+// 1-based track number. Uses the literal `play track N of playlist "<name>"`
+// form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+//
+// SECURITY: see scriptPlaylistTracks — the name is interpolated unescaped;
+// trust assumption is that it came from the user's own Music library.
+const scriptPlayPlaylistFromTrack = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		play track %d of playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
+	return "OK"
+end tell`

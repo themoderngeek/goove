@@ -89,6 +89,80 @@ func parseAirPlayDevices(raw string) ([]domain.AudioDevice, error) {
 	return devices, nil
 }
 
+// parsePlaylists parses the tab-separated output of scriptPlaylists. Each line
+// has three fields: name, kind ("user" | "subscription"), track_count.
+//
+// NOT_RUNNING maps to music.ErrNotRunning. Empty input returns an empty slice
+// (legitimate state — Music has no playlists). Rows with empty names are
+// skipped (Music permits a "" playlist name but `play playlist ""` errors).
+// Rows with the wrong field count are skipped defensively.
+func parsePlaylists(raw string) ([]domain.Playlist, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "NOT_RUNNING" {
+		return nil, music.ErrNotRunning
+	}
+	if trimmed == "" {
+		return []domain.Playlist{}, nil
+	}
+	var playlists []domain.Playlist
+	for _, line := range strings.Split(trimmed, "\n") {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 3 {
+			continue
+		}
+		if fields[0] == "" {
+			continue
+		}
+		count, err := strconv.Atoi(strings.TrimSpace(fields[2]))
+		if err != nil {
+			continue
+		}
+		playlists = append(playlists, domain.Playlist{
+			Name:       fields[0],
+			Kind:       fields[1],
+			TrackCount: count,
+		})
+	}
+	return playlists, nil
+}
+
+// parsePlaylistTracks parses the tab-separated output of scriptPlaylistTracks.
+// Each line has four fields: title, artist, album, duration_seconds.
+//
+// NOT_RUNNING → music.ErrNotRunning. NOT_FOUND → music.ErrPlaylistNotFound.
+// Empty input returns an empty slice. Malformed rows (wrong field count or
+// non-numeric duration) are skipped defensively.
+func parsePlaylistTracks(raw string) ([]domain.Track, error) {
+	trimmed := strings.TrimSpace(raw)
+	switch trimmed {
+	case "NOT_RUNNING":
+		return nil, music.ErrNotRunning
+	case "NOT_FOUND":
+		return nil, music.ErrPlaylistNotFound
+	}
+	if trimmed == "" {
+		return []domain.Track{}, nil
+	}
+	var tracks []domain.Track
+	for _, line := range strings.Split(trimmed, "\n") {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 4 {
+			continue
+		}
+		secs, err := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
+		if err != nil {
+			continue
+		}
+		tracks = append(tracks, domain.Track{
+			Title:    fields[0],
+			Artist:   fields[1],
+			Album:    fields[2],
+			Duration: time.Duration(secs * float64(time.Second)),
+		})
+	}
+	return tracks, nil
+}
+
 // matchAirPlayDevice picks the single device whose Name matches the user's input.
 // Exact match (case-sensitive) wins immediately; otherwise case-insensitive
 // substring match. Returns ErrDeviceNotFound if no matches; ErrAmbiguousDevice

@@ -3,9 +3,10 @@ package domain
 import "time"
 
 type Track struct {
-	Title  string
-	Artist string
-	Album  string
+	Title    string
+	Artist   string
+	Album    string
+	Duration time.Duration // populated by playlist tracks; left zero for NowPlaying.Track
 }
 
 type NowPlaying struct {

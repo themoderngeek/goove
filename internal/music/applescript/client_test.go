@@ -433,3 +433,133 @@ func TestPauseRunsPauseScript(t *testing.T) {
 		t.Errorf("ran %q; want scriptPause", r.script)
 	}
 }
+
+func TestPlaylistsRunsScript(t *testing.T) {
+	r := &fakeRunner{out: []byte("")}
+	c := New(r)
+	c.Playlists(context.Background())
+	if r.script != scriptPlaylists {
+		t.Errorf("ran %q; want scriptPlaylists", r.script)
+	}
+}
+
+func TestPlaylistsParsesOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("Liked Songs\tuser\t3\nWorkout\tsubscription\t5\n")}
+	c := New(r)
+
+	got, err := c.Playlists(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Name != "Liked Songs" || got[1].Kind != "subscription" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistsNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.Playlists(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestPlaylistTracksRunsScriptWithName(t *testing.T) {
+	r := &fakeRunner{out: []byte("")}
+	c := New(r)
+	c.PlaylistTracks(context.Background(), "Liked Songs")
+	if !strings.Contains(r.script, "Liked Songs") {
+		t.Errorf("ran %q; expected playlist name in script", r.script)
+	}
+}
+
+func TestPlaylistTracksParsesOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\nB\tArtist\tAlbum\t200\n")}
+	c := New(r)
+
+	got, err := c.PlaylistTracks(context.Background(), "Liked Songs")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Title != "A" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistTracksNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(r)
+	_, err := c.PlaylistTracks(context.Background(), "Atlantis")
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlaylistTracksNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.PlaylistTracks(context.Background(), "Liked Songs")
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestPlayPlaylistFromStartUsesPlayPlaylistForm(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(r.script, "play playlist") {
+		t.Errorf("script should use 'play playlist' form for fromIdx=0; got %q", r.script)
+	}
+	if strings.Contains(r.script, "play track") {
+		t.Errorf("script should NOT use 'play track' form for fromIdx=0; got %q", r.script)
+	}
+	if !strings.Contains(r.script, "Liked Songs") {
+		t.Errorf("script missing playlist name: %q", r.script)
+	}
+}
+
+func TestPlayPlaylistFromIndexUsesPlayTrackForm(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 4)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	// fromIdx=4 (0-based) should become AppleScript "track 5" (1-based).
+	if !strings.Contains(r.script, "play track 5") {
+		t.Errorf("script should use 'play track 5' for fromIdx=4; got %q", r.script)
+	}
+}
+
+func TestPlayPlaylistOKReturnsNil(t *testing.T) {
+	r := &fakeRunner{out: []byte("OK\n")}
+	c := New(r)
+	if err := c.PlayPlaylist(context.Background(), "Liked Songs", 0); err != nil {
+		t.Errorf("err = %v; want nil", err)
+	}
+}
+
+func TestPlayPlaylistNotFoundReturnsErrPlaylistNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(r)
+	err := c.PlayPlaylist(context.Background(), "Atlantis", 0)
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlayPlaylistNotRunningReturnsErrNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
