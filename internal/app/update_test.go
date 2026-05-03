@@ -1070,3 +1070,71 @@ func TestPlaylistTracksMsgIgnoresStaleResult(t *testing.T) {
 		t.Errorf("loadingTracks should remain true (the right fetch hasn't returned)")
 	}
 }
+
+func TestBrowserEnterOnLeftPlaysWholePlaylist(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "Liked Songs"}},
+	}
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected playPlaylist Cmd; got nil")
+	}
+	msg := cmd()
+	if _, ok := msg.(playPlaylistMsg); !ok {
+		t.Fatalf("cmd produced %T; want playPlaylistMsg", msg)
+	}
+	rec := c.PlayPlaylistRecord()
+	if len(rec) != 1 || rec[0].Name != "Liked Songs" || rec[0].FromIdx != 0 {
+		t.Errorf("record = %+v; want one call with Name=Liked Songs FromIdx=0", rec)
+	}
+}
+
+func TestBrowserEnterOnRightPlaysFromTrack(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:        rightPane,
+		playlists:   []domain.Playlist{{Name: "Liked Songs"}},
+		tracks:      []domain.Track{{Title: "T1"}, {Title: "T2"}, {Title: "T3"}},
+		tracksFor:   "Liked Songs",
+		trackCursor: 2,
+	}
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected playPlaylist Cmd; got nil")
+	}
+	cmd()
+	rec := c.PlayPlaylistRecord()
+	if len(rec) != 1 || rec[0].FromIdx != 2 {
+		t.Errorf("record = %+v; want one call with FromIdx=2", rec)
+	}
+}
+
+func TestBrowserEnterOnRightWithEmptyTracksIsNoOp(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      rightPane,
+		playlists: []domain.Playlist{{Name: "Empty"}},
+		tracks:    []domain.Track{},
+	}
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("enter on empty tracks should be a no-op; got Cmd")
+	}
+}

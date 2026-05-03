@@ -54,8 +54,27 @@ func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "shift+tab", "left":
 		m.browser.pane = leftPane
 		return m, nil
+	case "enter":
+		return handleBrowserEnter(m)
 	}
 	return m, nil
+}
+
+// handleBrowserEnter starts playback. From the left pane, it plays the
+// highlighted playlist from track 1. From the right pane, it plays the
+// playlist starting at the highlighted track. Empty playlists are a no-op.
+func handleBrowserEnter(m Model) (Model, tea.Cmd) {
+	if len(m.browser.playlists) == 0 {
+		return m, nil
+	}
+	current := m.browser.playlists[m.browser.playlistCursor].Name
+	if m.browser.pane == leftPane {
+		return m, playPlaylist(m.client, current, 0)
+	}
+	if len(m.browser.tracks) == 0 {
+		return m, nil
+	}
+	return m, playPlaylist(m.client, current, m.browser.trackCursor)
 }
 
 // browserFocusRight switches focus to the right (tracks) pane. If the tracks
