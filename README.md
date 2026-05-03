@@ -14,7 +14,7 @@ A small TUI for controlling Apple Music on macOS, written in Go.
 │      volume  ▮▮▮▮▮▯▯▯▯▯   50%                        │
 │                                                      │
 └──────────────────────────────────────────────────────┘
- space: play/pause   n: next   p: prev   +/-: vol   q: quit
+ space: play/pause   n: next   p: prev   +/-: vol   o: output   l: browse   q: quit
 ```
 
 ## Install
@@ -44,21 +44,40 @@ If you say no, you can re-enable it under
 | `p` | previous track |
 | `+` / `=` | volume +5% |
 | `-` | volume −5% |
-| `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, esc back) |
+| `o` | open output (AirPlay) picker (picker keys: ↑↓ nav, ⏎ select, esc cancel) |
+| `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, `r` refresh, esc back) |
 | `q` | quit |
 
-## Playlists from the CLI
+## CLI commands
+
+Every action is also available as a one-shot subcommand, so goove works from
+scripts and keyboard shortcuts without launching the TUI.
 
 ```bash
-goove playlists list                      # user + subscription playlists
-goove playlists tracks "Liked Songs"      # tracks of a playlist
-goove playlists play "Liked Songs"        # play a playlist from the start
-goove playlists play "Liked Songs" --track 5   # start from track 5 (1-based)
+goove status [--json]                 # current track (one line)
+goove play                            # start playback
+goove pause                           # pause playback
+goove toggle                          # play/pause toggle
+goove next                            # skip forward
+goove prev                            # skip backward
+goove volume <0..100>                 # set volume (silently clamps)
+goove launch                          # launch Apple Music if not running
 
-# 'goove playlist <subcommand>' (singular) is an alias.
-# Names match exactly first, then case-insensitive substring; multiple
-# matches are listed and the command exits 1.
+goove targets list [--json]           # AirPlay devices
+goove targets get  [--json]           # currently selected device
+goove targets set  <name>             # route audio to <name>
+
+goove playlists list                          # user + subscription playlists
+goove playlists tracks "Liked Songs"          # tracks of a playlist
+goove playlists play   "Liked Songs"          # play a playlist from the start
+goove playlists play   "Liked Songs" --track 5   # start from track 5 (1-based)
+
+goove help
 ```
+
+`playlist` (singular) is an alias for `playlists`. Playlist and target names
+match exactly first, then by case-insensitive substring; multiple matches are
+listed and the command exits 1.
 
 ## Logs
 
