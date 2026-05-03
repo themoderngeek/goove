@@ -141,6 +141,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handlePickerKey(msg)
 	}
 
+	if m.mode == modeBrowser {
+		return handleBrowserKey(m, msg)
+	}
+
 	switch msg.String() {
 	case "q":
 		return m, tea.Quit

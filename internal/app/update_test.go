@@ -859,3 +859,93 @@ func TestPlaylistsMsgErrorStoredInState(t *testing.T) {
 		t.Errorf("loadingLists still true after error")
 	}
 }
+
+func TestBrowserLeftPaneDownMovesCursor(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}, {Name: "C"}},
+	}
+
+	for _, key := range []tea.KeyMsg{
+		{Type: tea.KeyDown},
+		{Type: tea.KeyRunes, Runes: []rune{'j'}},
+	} {
+		t.Run(key.String(), func(t *testing.T) {
+			startCursor := m.browser.playlistCursor
+			updated, _ := m.Update(key)
+			mm := updated.(Model)
+			if mm.browser.playlistCursor != startCursor+1 {
+				t.Errorf("cursor = %d; want %d", mm.browser.playlistCursor, startCursor+1)
+			}
+			m = mm // carry state forward to test the second key
+		})
+	}
+}
+
+func TestBrowserLeftPaneUpMovesCursor(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:           leftPane,
+		playlists:      []domain.Playlist{{Name: "A"}, {Name: "B"}, {Name: "C"}},
+		playlistCursor: 2,
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	mm := updated.(Model)
+	if mm.browser.playlistCursor != 1 {
+		t.Errorf("cursor = %d; want 1", mm.browser.playlistCursor)
+	}
+
+	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	mm = updated.(Model)
+	if mm.browser.playlistCursor != 0 {
+		t.Errorf("cursor = %d; want 0", mm.browser.playlistCursor)
+	}
+}
+
+func TestBrowserLeftPaneCursorClampsAtBounds(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}},
+	}
+
+	// Up at top stays at 0.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if updated.(Model).browser.playlistCursor != 0 {
+		t.Errorf("up at 0 should clamp")
+	}
+
+	// Down past last stays at last.
+	m.browser.playlistCursor = 1
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if updated.(Model).browser.playlistCursor != 1 {
+		t.Errorf("down at last should clamp")
+	}
+}
+
+func TestBrowserLeftPaneNavigationDoesNotFetchTracks(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "A"}, {Name: "B"}})
+	c.SetPlaylistTracks("A", []domain.Track{{Title: "TA"}})
+	c.SetPlaylistTracks("B", []domain.Track{{Title: "TB"}})
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}},
+	}
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if cmd != nil {
+		t.Errorf("cursor move on left pane should not return a Cmd; got %T", cmd())
+	}
+}
