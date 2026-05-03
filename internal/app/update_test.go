@@ -1138,3 +1138,56 @@ func TestBrowserEnterOnRightWithEmptyTracksIsNoOp(t *testing.T) {
 		t.Errorf("enter on empty tracks should be a no-op; got Cmd")
 	}
 }
+
+func TestBrowserRRefetchesPlaylistsOnLeftPane(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "A"}},
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm := updated.(Model)
+	if !mm.browser.loadingLists {
+		t.Errorf("loadingLists = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylists Cmd; got nil")
+	}
+	if _, ok := cmd().(playlistsMsg); !ok {
+		t.Errorf("Cmd did not produce playlistsMsg")
+	}
+}
+
+func TestBrowserRRefetchesTracksOnRightPane(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      rightPane,
+		playlists: []domain.Playlist{{Name: "Liked Songs"}},
+		tracksFor: "Liked Songs",
+		tracks:    []domain.Track{{Title: "T"}},
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm := updated.(Model)
+	if !mm.browser.loadingTracks {
+		t.Errorf("loadingTracks = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylistTracks Cmd; got nil")
+	}
+	msg := cmd()
+	pmsg, ok := msg.(playlistTracksMsg)
+	if !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksMsg", msg)
+	}
+	if pmsg.name != "Liked Songs" {
+		t.Errorf("refetch name = %q; want Liked Songs", pmsg.name)
+	}
+}

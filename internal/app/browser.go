@@ -56,8 +56,27 @@ func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		return handleBrowserEnter(m)
+	case "r":
+		return handleBrowserRefetch(m)
 	}
 	return m, nil
+}
+
+// handleBrowserRefetch refetches the focused pane's data: playlists for the
+// left pane, tracks for the right pane. Resets the relevant tracksFor sentinel
+// so the result is not treated as stale.
+func handleBrowserRefetch(m Model) (Model, tea.Cmd) {
+	if m.browser.pane == leftPane {
+		m.browser.loadingLists = true
+		return m, fetchPlaylists(m.client)
+	}
+	if len(m.browser.playlists) == 0 {
+		return m, nil
+	}
+	current := m.browser.playlists[m.browser.playlistCursor].Name
+	m.browser.loadingTracks = true
+	m.browser.tracksFor = "" // force the playlistTracksMsg handler to accept the result
+	return m, fetchPlaylistTracks(m.client, current)
 }
 
 // handleBrowserEnter starts playback. From the left pane, it plays the
