@@ -5,6 +5,7 @@ package applescript
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
@@ -276,6 +277,74 @@ func TestParsePlaylistsSkipsMalformedRow(t *testing.T) {
 	raw := "Bad Row\tuser\n" + "Liked Songs\tuser\t42\n"
 	got, _ := parsePlaylists(raw)
 	if len(got) != 1 || got[0].Name != "Liked Songs" {
+		t.Errorf("got = %+v; expected malformed row to be skipped", got)
+	}
+}
+
+func TestParsePlaylistTracksEmpty(t *testing.T) {
+	got, err := parsePlaylistTracks("")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("len = %d; want 0", len(got))
+	}
+}
+
+func TestParsePlaylistTracksNotRunning(t *testing.T) {
+	_, err := parsePlaylistTracks("NOT_RUNNING\n")
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestParsePlaylistTracksNotFound(t *testing.T) {
+	_, err := parsePlaylistTracks("NOT_FOUND\n")
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestParsePlaylistTracksSingle(t *testing.T) {
+	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\n"
+	got, err := parsePlaylistTracks(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d; want 1", len(got))
+	}
+	want := domain.Track{
+		Title:    "Stairway to Heaven",
+		Artist:   "Led Zeppelin",
+		Album:    "Led Zeppelin IV",
+		Duration: 482 * time.Second,
+	}
+	if got[0] != want {
+		t.Errorf("got[0] = %+v; want %+v", got[0], want)
+	}
+}
+
+func TestParsePlaylistTracksMultiple(t *testing.T) {
+	raw := "A\tArtist\tAlbum\t100\n" +
+		"B\tArtist\tAlbum\t200\n" +
+		"C\tArtist\tAlbum\t300"
+	got, err := parsePlaylistTracks(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len = %d; want 3", len(got))
+	}
+	if got[2].Duration != 300*time.Second {
+		t.Errorf("got[2].Duration = %v; want 300s", got[2].Duration)
+	}
+}
+
+func TestParsePlaylistTracksSkipsMalformedRow(t *testing.T) {
+	raw := "BadRow\tArtist\tAlbum\n" + "Good\tArtist\tAlbum\t100\n"
+	got, _ := parsePlaylistTracks(raw)
+	if len(got) != 1 || got[0].Title != "Good" {
 		t.Errorf("got = %+v; expected malformed row to be skipped", got)
 	}
 }
