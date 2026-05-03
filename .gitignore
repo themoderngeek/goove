@@ -34,5 +34,8 @@ go.work.sum
 # Brainstorming visual companion (mockups + state)
 .superpowers/
 
+# Git worktrees (subagent-driven development)
+.worktrees/
+
 # goove built binary
 /goove
