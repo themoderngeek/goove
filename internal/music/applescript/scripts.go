@@ -116,3 +116,36 @@ end tell`
 
 const scriptPlay = `tell application "Music" to play`
 const scriptPause = `tell application "Music" to pause`
+
+// scriptPlaylists returns one tab-separated line per user/subscription playlist:
+//
+//	name\tkind\ttrack_count
+//
+// kind is "user" or "subscription". Iterates user playlists then subscription
+// playlists in a single tell block. Empty list ⇒ empty stdout. Returns
+// "NOT_RUNNING" if Music isn't running.
+//
+// NOTE: playlist names containing tabs or linefeeds would corrupt parsing —
+// Apple's UI does not permit either, accepted MVP limitation (matches
+// scriptAirPlayDevices).
+const scriptPlaylists = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set out to ""
+	repeat with p in user playlists
+		set ln to (name of p) & tab & "user" & tab & ((count of tracks of p) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	repeat with p in subscription playlists
+		set ln to (name of p) & tab & "subscription" & tab & ((count of tracks of p) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	return out
+end tell`

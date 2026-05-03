@@ -203,9 +203,13 @@ func (c *Client) Pause(ctx context.Context) error {
 	return err
 }
 
-// Playlists implements music.Client. Real impl in Task 7.
+// Playlists implements music.Client.
 func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
-	return nil, music.ErrUnavailable
+	out, err := c.run(ctx, scriptPlaylists)
+	if err != nil {
+		return nil, err
+	}
+	return parsePlaylists(string(out))
 }
 
 // PlaylistTracks implements music.Client. Real impl in Task 8.

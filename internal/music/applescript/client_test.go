@@ -433,3 +433,34 @@ func TestPauseRunsPauseScript(t *testing.T) {
 		t.Errorf("ran %q; want scriptPause", r.script)
 	}
 }
+
+func TestPlaylistsRunsScript(t *testing.T) {
+	r := &fakeRunner{out: []byte("")}
+	c := New(r)
+	c.Playlists(context.Background())
+	if r.script != scriptPlaylists {
+		t.Errorf("ran %q; want scriptPlaylists", r.script)
+	}
+}
+
+func TestPlaylistsParsesOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("Liked Songs\tuser\t3\nWorkout\tsubscription\t5\n")}
+	c := New(r)
+
+	got, err := c.Playlists(context.Background())
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Name != "Liked Songs" || got[1].Kind != "subscription" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistsNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.Playlists(context.Background())
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
