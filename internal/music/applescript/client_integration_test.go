@@ -127,3 +127,26 @@ func TestIntegrationAirPlayDevicesRoundtrip(t *testing.T) {
 	// Read-only by design — this test does NOT call SetAirPlayDevice
 	// because that would disrupt the user's actual audio routing.
 }
+
+func TestIntegrationPlaylistsListsAtLeastZero(t *testing.T) {
+	c := NewDefault()
+	ctx := context.Background()
+
+	if err := c.Launch(ctx); err != nil {
+		t.Fatalf("Launch err = %v", err)
+	}
+
+	got, err := c.Playlists(ctx)
+	if err != nil {
+		t.Fatalf("Playlists err = %v", err)
+	}
+	// We don't assert a specific count — the user's library is unknown.
+	// Assert only that we got a slice (possibly empty) and that any returned
+	// rows have plausible Kind values.
+	for _, p := range got {
+		if p.Kind != "user" && p.Kind != "subscription" {
+			t.Errorf("playlist %q has unexpected kind %q", p.Name, p.Kind)
+		}
+	}
+	t.Logf("found %d playlists", len(got))
+}
