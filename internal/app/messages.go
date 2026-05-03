@@ -45,3 +45,26 @@ type devicesMsg struct {
 type deviceSetMsg struct {
 	err error
 }
+
+// playlistsMsg carries the result of a Playlists fetch.
+type playlistsMsg struct {
+	playlists []domain.Playlist
+	err       error
+}
+
+// playlistTracksMsg carries the result of a PlaylistTracks fetch.
+// name is the playlist the tracks belong to, used to ignore stale results
+// (the user may have moved the cursor and triggered another fetch before
+// this one completed).
+type playlistTracksMsg struct {
+	name   string
+	tracks []domain.Track
+	err    error
+}
+
+// playPlaylistMsg carries the result of a PlayPlaylist invocation. The
+// existing 1Hz status tick will surface the new now-playing in its next poll;
+// this message is just for surfacing errors in the browser.
+type playPlaylistMsg struct {
+	err error
+}

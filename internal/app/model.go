@@ -43,6 +43,35 @@ type pickerState struct {
 	err     error
 }
 
+type viewMode int
+
+const (
+	modeNowPlaying viewMode = iota
+	modeBrowser
+)
+
+type browserPane int
+
+const (
+	leftPane  browserPane = iota // playlists
+	rightPane                    // tracks of selected playlist
+)
+
+// browserState is the modal browser-view state. nil on Model means "browser
+// not open"; non-nil means "browser is showing." Loading flags suppress
+// duplicate fetches while a Cmd is in flight.
+type browserState struct {
+	pane           browserPane
+	playlists      []domain.Playlist
+	playlistCursor int
+	loadingLists   bool
+	tracks         []domain.Track // tracks of the playlist at playlistCursor
+	tracksFor      string         // name of the playlist tracks were last fetched for
+	trackCursor    int
+	loadingTracks  bool
+	err            error
+}
+
 // Model holds the entire goove TUI state.
 type Model struct {
 	client music.Client
@@ -60,8 +89,10 @@ type Model struct {
 	height int
 
 	art      artState
-	renderer art.Renderer                   // nil ⇒ chafa unavailable; track-change detection skips fetches
-	picker   *pickerState                   // nil ⇒ picker not open (modal overlay state)
+	renderer art.Renderer  // nil ⇒ chafa unavailable; track-change detection skips fetches
+	picker   *pickerState  // nil ⇒ picker not open (modal overlay state)
+	mode     viewMode
+	browser  *browserState
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
