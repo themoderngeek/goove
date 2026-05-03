@@ -14,6 +14,7 @@ const scriptLaunch = `tell application "Music" to launch`
 //   - "NOT_RUNNING"
 //   - "NO_TRACK"
 //   - 7 newline-separated lines: title, artist, album, position, duration, state, volume
+//
 // NOTE: linefeed (U+000A) is the field delimiter. Track metadata containing a
 // literal newline will corrupt the parsed output. Accepted as an MVP limitation.
 const scriptStatus = `tell application "Music"
@@ -47,6 +48,7 @@ const scriptSetVolume = `tell application "Music" to set sound volume to %d`
 //   - "NOT_RUNNING"  — Music isn't running
 //   - "NO_ART"       — current track has no embedded artwork
 //   - "OK"           — bytes written to %s
+//
 // The "raw data of artwork" form returns direct PNG bytes on macOS 26;
 // validated against Music.app 26.4.1 (800x800 PNG).
 const scriptArtwork = `tell application "Music"
@@ -160,6 +162,11 @@ end tell`
 //
 // NOTE: track names containing tabs or linefeeds would corrupt parsing —
 // accepted MVP limitation.
+//
+// SECURITY: the playlist name is interpolated unescaped. AppleScript-string
+// escaping (backslash, double-quote) is intentionally NOT performed for v1.
+// Callers must trust that names come from the user's own Music library
+// (matches scriptSetAirPlay's existing trust model).
 const scriptPlaylistTracks = `tell application "Music"
 	if not running then return "NOT_RUNNING"
 	set targetName to "%s"
@@ -193,6 +200,9 @@ end tell`
 // scriptPlayPlaylistFromStart starts playback of the named playlist from track 1.
 // %s is the EXACT playlist name. Uses the literal `play playlist "<name>"`
 // form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+//
+// SECURITY: see scriptPlaylistTracks — the name is interpolated unescaped;
+// trust assumption is that it came from the user's own Music library.
 const scriptPlayPlaylistFromStart = `tell application "Music"
 	if not running then return "NOT_RUNNING"
 	try
@@ -207,6 +217,9 @@ end tell`
 // specific 1-based track index. %s is the EXACT playlist name; %d is the
 // 1-based track number. Uses the literal `play track N of playlist "<name>"`
 // form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+//
+// SECURITY: see scriptPlaylistTracks — the name is interpolated unescaped;
+// trust assumption is that it came from the user's own Music library.
 const scriptPlayPlaylistFromTrack = `tell application "Music"
 	if not running then return "NOT_RUNNING"
 	try

@@ -42,8 +42,8 @@ func playPlaylist(c music.Client, name string, fromIdx int) tea.Cmd {
 // handleBrowserKey routes key messages while the browser is open. Returns the
 // updated model, any Cmd, and a "handled" flag. When handled is false, the
 // caller should fall through to the now-playing key handler (so transport keys
-// like space/n/p/+/-/q still work in browser mode — Task 23). Browser-specific
-// keys (j/k/up/down/tab/right/shift+tab/left/enter/r/esc/l) are handled here.
+// like space/n/p/+/-/q still work in browser mode). Browser-specific keys
+// (j/k/up/down/tab/right/shift+tab/left/enter/r/esc/l) are handled here.
 func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	if m.browser == nil {
 		return m, nil, false
