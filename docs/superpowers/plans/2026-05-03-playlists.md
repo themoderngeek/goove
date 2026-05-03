@@ -1208,55 +1208,30 @@ In `scripts.go`, append:
 
 ```go
 // scriptPlayPlaylistFromStart starts playback of the named playlist from track 1.
-// %s is the EXACT playlist name. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+// %s is the EXACT playlist name. Uses the literal `play playlist "<name>"`
+// form per the spec. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
 const scriptPlayPlaylistFromStart = `tell application "Music"
 	if not running then return "NOT_RUNNING"
-	set targetName to "%s"
-	set found to false
-	repeat with p in user playlists
-		if (name of p) is equal to targetName then
-			play p
-			set found to true
-			exit repeat
-		end if
-	end repeat
-	if not found then
-		repeat with p in subscription playlists
-			if (name of p) is equal to targetName then
-				play p
-				set found to true
-				exit repeat
-			end if
-		end repeat
-	end if
-	if not found then return "NOT_FOUND"
+	try
+		play playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
 	return "OK"
 end tell`
 
 // scriptPlayPlaylistFromTrack starts playback of the named playlist from a
-// specific 1-based track index. %s is the EXACT playlist name; %d is the
-// 1-based track number. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+// specific 1-based track index. %d is the 1-based track number; %s is the
+// EXACT playlist name (note: %d comes BEFORE %s in the format string).
+// Uses the literal `play track N of playlist "<name>"` form per the spec.
+// Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
 const scriptPlayPlaylistFromTrack = `tell application "Music"
 	if not running then return "NOT_RUNNING"
-	set targetName to "%s"
-	set found to false
-	repeat with p in user playlists
-		if (name of p) is equal to targetName then
-			play track %d of p
-			set found to true
-			exit repeat
-		end if
-	end repeat
-	if not found then
-		repeat with p in subscription playlists
-			if (name of p) is equal to targetName then
-				play track %d of p
-				set found to true
-				exit repeat
-			end if
-		end repeat
-	end if
-	if not found then return "NOT_FOUND"
+	try
+		play track %d of playlist "%s"
+	on error
+		return "NOT_FOUND"
+	end try
 	return "OK"
 end tell`
 ```
@@ -1276,7 +1251,7 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 		script = fmt.Sprintf(scriptPlayPlaylistFromStart, playlistName)
 	} else {
 		appleIdx := fromTrackIndex + 1
-		script = fmt.Sprintf(scriptPlayPlaylistFromTrack, playlistName, appleIdx, appleIdx)
+		script = fmt.Sprintf(scriptPlayPlaylistFromTrack, appleIdx, playlistName)
 	}
 	out, err := c.run(ctx, script)
 	if err != nil {
