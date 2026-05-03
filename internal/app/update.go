@@ -159,7 +159,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	if m.mode == modeBrowser {
-		return handleBrowserKey(m, msg)
+		if mm, cmd, handled := handleBrowserKey(m, msg); handled {
+			return mm, cmd
+		}
+		// Fall through to the now-playing key handler for transport keys etc.
 	}
 
 	switch msg.String() {

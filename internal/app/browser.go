@@ -37,33 +37,43 @@ func playPlaylist(c music.Client, name string, fromIdx int) tea.Cmd {
 }
 
 // handleBrowserKey routes key messages while the browser is open. Returns the
-// updated model + any Cmd. Transport keys (space, n, p, +, -, q) fall through
-// to the now-playing key handler (Task 23). Browser-specific keys are handled
-// here.
-func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+// updated model, any Cmd, and a "handled" flag. When handled is false, the
+// caller should fall through to the now-playing key handler (so transport keys
+// like space/n/p/+/-/q still work in browser mode — Task 23). Browser-specific
+// keys (j/k/up/down/tab/right/shift+tab/left/enter/r/esc/l) are handled here.
+func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	if m.browser == nil {
-		return m, nil
+		return m, nil, false
 	}
 	switch msg.String() {
 	case "up", "k":
-		return browserCursorUp(m), nil
+		mm := browserCursorUp(m)
+		return mm, nil, true
 	case "down", "j":
-		return browserCursorDown(m), nil
+		mm := browserCursorDown(m)
+		return mm, nil, true
 	case "tab", "right":
-		return browserFocusRight(m)
+		mm, cmd := browserFocusRight(m)
+		return mm, cmd, true
 	case "shift+tab", "left":
 		m.browser.pane = leftPane
-		return m, nil
+		return m, nil, true
 	case "enter":
-		return handleBrowserEnter(m)
+		mm, cmd := handleBrowserEnter(m)
+		return mm, cmd, true
 	case "r":
-		return handleBrowserRefetch(m)
+		mm, cmd := handleBrowserRefetch(m)
+		return mm, cmd, true
 	case "esc":
 		m.mode = modeNowPlaying
 		m.browser = nil
-		return m, nil
+		return m, nil, true
+	case "l":
+		// Already in browser; spec says no-op (don't toggle).
+		return m, nil, true
 	}
-	return m, nil
+	// Not a browser-specific key — let the now-playing handler take it.
+	return m, nil, false
 }
 
 // handleBrowserRefetch refetches the focused pane's data: playlists for the

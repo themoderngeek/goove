@@ -1207,3 +1207,41 @@ func TestBrowserEscReturnsToNowPlaying(t *testing.T) {
 		t.Errorf("browser state should be cleared on esc; got %+v", mm.browser)
 	}
 }
+
+func TestBrowserModeTransportKeysStillFire(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
+
+	tests := []struct {
+		name string
+		key  tea.KeyMsg
+		want func(*fake.Client) bool
+	}{
+		{"space → playpause", tea.KeyMsg{Type: tea.KeySpace}, func(c *fake.Client) bool { return c.PlayPauseCalls == 1 }},
+		{"n → next", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}, func(c *fake.Client) bool { return c.NextCalls == 1 }},
+		{"p → prev", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}, func(c *fake.Client) bool { return c.PrevCalls == 1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := fake.New()
+			c.Launch(context.Background())
+			m := New(c, nil)
+			// Connected state so space dispatches PlayPause (not Launch).
+			m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
+			m.mode = modeBrowser
+			m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
+
+			updated, cmd := m.Update(tt.key)
+			if cmd != nil {
+				cmd() // execute the Cmd so the fake's counter is incremented
+			}
+			_ = updated
+			if !tt.want(c) {
+				t.Errorf("transport call did not fire for %s", tt.name)
+			}
+		})
+	}
+}
