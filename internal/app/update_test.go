@@ -949,3 +949,124 @@ func TestBrowserLeftPaneNavigationDoesNotFetchTracks(t *testing.T) {
 		t.Errorf("cursor move on left pane should not return a Cmd; got %T", cmd())
 	}
 }
+
+func TestBrowserTabSwitchesToRightPaneAndFetchesTracks(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:           leftPane,
+		playlists:      []domain.Playlist{{Name: "Liked Songs"}},
+		playlistCursor: 0,
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	mm := updated.(Model)
+
+	if mm.browser.pane != rightPane {
+		t.Errorf("pane = %v; want rightPane", mm.browser.pane)
+	}
+	if !mm.browser.loadingTracks {
+		t.Errorf("loadingTracks = false; want true after focusing right pane")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylistTracks Cmd; got nil")
+	}
+	// Verify the cmd produces a playlistTracksMsg for the right playlist.
+	msg := cmd()
+	pmsg, ok := msg.(playlistTracksMsg)
+	if !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksMsg", msg)
+	}
+	if pmsg.name != "Liked Songs" {
+		t.Errorf("fetched name = %q; want Liked Songs", pmsg.name)
+	}
+}
+
+func TestBrowserRightArrowAlsoSwitchesPane(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:      leftPane,
+		playlists: []domain.Playlist{{Name: "X"}},
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	if updated.(Model).browser.pane != rightPane {
+		t.Errorf("right arrow did not switch pane")
+	}
+}
+
+func TestBrowserShiftTabReturnsToLeftPaneNoFetch(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:   rightPane,
+		tracks: []domain.Track{{Title: "T"}},
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	mm := updated.(Model)
+	if mm.browser.pane != leftPane {
+		t.Errorf("pane = %v; want leftPane", mm.browser.pane)
+	}
+	if cmd != nil {
+		t.Errorf("returning to left should not trigger a Cmd")
+	}
+}
+
+func TestPlaylistTracksMsgPopulatesState(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:          rightPane,
+		playlists:     []domain.Playlist{{Name: "Liked Songs"}},
+		loadingTracks: true,
+	}
+
+	updated, _ := m.Update(playlistTracksMsg{
+		name:   "Liked Songs",
+		tracks: []domain.Track{{Title: "A"}, {Title: "B"}},
+	})
+	mm := updated.(Model)
+	if mm.browser.loadingTracks {
+		t.Errorf("loadingTracks still true after message")
+	}
+	if len(mm.browser.tracks) != 2 {
+		t.Errorf("tracks = %+v", mm.browser.tracks)
+	}
+	if mm.browser.tracksFor != "Liked Songs" {
+		t.Errorf("tracksFor = %q; want Liked Songs", mm.browser.tracksFor)
+	}
+}
+
+func TestPlaylistTracksMsgIgnoresStaleResult(t *testing.T) {
+	// Cursor moved to playlist B, then B's fetch was issued, but A's
+	// older fetch arrives first. We should ignore A's tracks.
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{
+		pane:           rightPane,
+		playlists:      []domain.Playlist{{Name: "A"}, {Name: "B"}},
+		playlistCursor: 1, // B is currently selected
+		loadingTracks:  true,
+	}
+
+	updated, _ := m.Update(playlistTracksMsg{
+		name:   "A", // stale — cursor is on B now
+		tracks: []domain.Track{{Title: "From A"}},
+	})
+	mm := updated.(Model)
+	if len(mm.browser.tracks) != 0 {
+		t.Errorf("stale result should not have populated tracks: %+v", mm.browser.tracks)
+	}
+	if !mm.browser.loadingTracks {
+		t.Errorf("loadingTracks should remain true (the right fetch hasn't returned)")
+	}
+}

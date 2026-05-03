@@ -93,6 +93,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case playlistTracksMsg:
+		if m.browser != nil && len(m.browser.playlists) > 0 {
+			current := m.browser.playlists[m.browser.playlistCursor].Name
+			if msg.name != current {
+				// Stale result — the cursor has moved since this fetch was issued.
+				return m, nil
+			}
+			m.browser.loadingTracks = false
+			m.browser.err = msg.err
+			if msg.err == nil {
+				m.browser.tracks = msg.tracks
+				m.browser.tracksFor = msg.name
+				m.browser.trackCursor = 0
+			}
+		}
+		return m, nil
 	}
 	return m, nil
 }

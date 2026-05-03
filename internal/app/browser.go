@@ -49,8 +49,32 @@ func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return browserCursorUp(m), nil
 	case "down", "j":
 		return browserCursorDown(m), nil
+	case "tab", "right":
+		return browserFocusRight(m)
+	case "shift+tab", "left":
+		m.browser.pane = leftPane
+		return m, nil
 	}
 	return m, nil
+}
+
+// browserFocusRight switches focus to the right (tracks) pane. If the tracks
+// for the currently-selected playlist haven't been fetched yet (or were
+// fetched for a different playlist), it dispatches a fetchPlaylistTracks Cmd
+// and sets loadingTracks. Otherwise it's a pure focus change.
+func browserFocusRight(m Model) (Model, tea.Cmd) {
+	m.browser.pane = rightPane
+	if len(m.browser.playlists) == 0 {
+		return m, nil
+	}
+	current := m.browser.playlists[m.browser.playlistCursor].Name
+	if m.browser.tracksFor == current {
+		return m, nil // already have these tracks
+	}
+	m.browser.loadingTracks = true
+	m.browser.tracks = nil
+	m.browser.trackCursor = 0
+	return m, fetchPlaylistTracks(m.client, current)
 }
 
 // browserCursorUp moves the cursor up by 1, clamped to 0, in the focused pane.
