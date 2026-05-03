@@ -89,8 +89,8 @@ type Model struct {
 	height int
 
 	art      artState
-	renderer art.Renderer  // nil ⇒ chafa unavailable; track-change detection skips fetches
-	picker   *pickerState  // nil ⇒ picker not open (modal overlay state)
+	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
+	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
 	mode     viewMode
 	browser  *browserState
 }
