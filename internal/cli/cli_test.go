@@ -1263,3 +1263,32 @@ func TestPlaylistsTracksSubstringMatch(t *testing.T) {
 		t.Errorf("exit = %d; want 0 (substring should match)", code)
 	}
 }
+
+func TestPlaylistsTracksEmptyPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
+	c.SetPlaylistTracks("Empty", []domain.Track{})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "tracks", "Empty"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "(no tracks)") {
+		t.Errorf("stdout missing '(no tracks)': %q", stdout.String())
+	}
+}
+
+func TestPlaylistsTracksEmptyJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
+	c.SetPlaylistTracks("Empty", []domain.Track{})
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"playlists", "tracks", "Empty", "--json"}, c, &stdout, &stderr)
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("stdout = %q; want '[]'", stdout.String())
+	}
+}
