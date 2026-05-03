@@ -16,7 +16,7 @@ const (
 	compactThreshold = 50
 )
 
-const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   o: output   q: quit"
+const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   o: output   l: browse   q: quit"
 
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
