@@ -981,3 +981,140 @@ func TestPausePermissionDeniedExit2(t *testing.T) {
 		t.Errorf("exit = %d; want 2", code)
 	}
 }
+
+func TestPlaylistsListPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Liked Songs", Kind: "user", TrackCount: 42},
+		{Name: "Workout", Kind: "subscription", TrackCount: 12},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "list"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Liked Songs") || !strings.Contains(got, "Workout") {
+		t.Errorf("stdout missing playlist names: %q", got)
+	}
+	if !strings.Contains(got, "user") || !strings.Contains(got, "subscription") {
+		t.Errorf("stdout missing kind annotations: %q", got)
+	}
+	if !strings.Contains(got, "42 tracks") || !strings.Contains(got, "12 tracks") {
+		t.Errorf("stdout missing track counts: %q", got)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestPlaylistsListJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{
+		{Name: "Liked Songs", Kind: "user", TrackCount: 42},
+	})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "list", "--json"}, c, &stdout, &stderr)
+
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	var got []map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%q", err, stdout.String())
+	}
+	if len(got) != 1 || got[0]["name"] != "Liked Songs" || got[0]["kind"] != "user" {
+		t.Errorf("got = %+v", got)
+	}
+	if got[0]["track_count"] != float64(42) {
+		t.Errorf("track_count = %v; want 42", got[0]["track_count"])
+	}
+}
+
+func TestPlaylistsListEmptyPlain(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "list"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "(no playlists)") {
+		t.Errorf("stdout missing empty marker: %q", stdout.String())
+	}
+}
+
+func TestPlaylistsListEmptyJSON(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{})
+	var stdout, stderr bytes.Buffer
+
+	Run([]string{"playlists", "list", "--json"}, c, &stdout, &stderr)
+	if strings.TrimSpace(stdout.String()) != "[]" {
+		t.Errorf("stdout = %q; want '[]'", stdout.String())
+	}
+}
+
+func TestPlaylistsListNotRunningExit1(t *testing.T) {
+	c := fake.New() // not launched
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "list"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "isn't running") {
+		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
+	}
+}
+
+func TestPlaylistsNoSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "requires a subcommand") {
+		t.Errorf("stderr missing 'requires a subcommand': %q", stderr.String())
+	}
+}
+
+func TestPlaylistsUnknownSubcommandExit1(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlists", "frobnicate"}, c, &stdout, &stderr)
+	if code != 1 {
+		t.Errorf("exit = %d; want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "frobnicate") {
+		t.Errorf("stderr missing unknown subcommand name: %q", stderr.String())
+	}
+}
+
+func TestPlaylistsHelpFlag(t *testing.T) {
+	for _, arg := range []string{"--help", "-h", "help"} {
+		t.Run(arg, func(t *testing.T) {
+			c := fake.New()
+			var stdout, stderr bytes.Buffer
+
+			code := Run([]string{"playlists", arg}, c, &stdout, &stderr)
+			if code != 0 {
+				t.Errorf("exit = %d; want 0", code)
+			}
+			if !strings.Contains(stdout.String(), "playlists") {
+				t.Errorf("stdout missing playlists-specific help: %q", stdout.String())
+			}
+		})
+	}
+}
