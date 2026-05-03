@@ -149,3 +149,43 @@ const scriptPlaylists = `tell application "Music"
 	end repeat
 	return out
 end tell`
+
+// scriptPlaylistTracks returns one tab-separated line per track of the named
+// playlist:
+//
+//	title\tartist\talbum\tduration_seconds
+//
+// %s is the EXACT playlist name. Returns "NOT_RUNNING" if Music isn't running,
+// "NOT_FOUND" if no playlist with that name exists.
+//
+// NOTE: track names containing tabs or linefeeds would corrupt parsing —
+// accepted MVP limitation.
+const scriptPlaylistTracks = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set targetName to "%s"
+	set matches to {}
+	repeat with p in user playlists
+		if (name of p) is equal to targetName then
+			set end of matches to p
+		end if
+	end repeat
+	if (count of matches) is 0 then
+		repeat with p in subscription playlists
+			if (name of p) is equal to targetName then
+				set end of matches to p
+			end if
+		end repeat
+	end if
+	if (count of matches) is 0 then return "NOT_FOUND"
+	set thePlaylist to item 1 of matches
+	set out to ""
+	repeat with t in tracks of thePlaylist
+		set ln to (name of t) & tab & (artist of t) & tab & (album of t) & tab & ((duration of t) as text)
+		if out is "" then
+			set out to ln
+		else
+			set out to out & linefeed & ln
+		end if
+	end repeat
+	return out
+end tell`

@@ -212,9 +212,13 @@ func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
 	return parsePlaylists(string(out))
 }
 
-// PlaylistTracks implements music.Client. Real impl in Task 8.
+// PlaylistTracks implements music.Client.
 func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error) {
-	return nil, music.ErrUnavailable
+	out, err := c.run(ctx, fmt.Sprintf(scriptPlaylistTracks, playlistName))
+	if err != nil {
+		return nil, err
+	}
+	return parsePlaylistTracks(string(out))
 }
 
 // PlayPlaylist implements music.Client. Real impl in Task 9.

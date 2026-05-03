@@ -464,3 +464,43 @@ func TestPlaylistsNotRunning(t *testing.T) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
 	}
 }
+
+func TestPlaylistTracksRunsScriptWithName(t *testing.T) {
+	r := &fakeRunner{out: []byte("")}
+	c := New(r)
+	c.PlaylistTracks(context.Background(), "Liked Songs")
+	if !strings.Contains(r.script, "Liked Songs") {
+		t.Errorf("ran %q; expected playlist name in script", r.script)
+	}
+}
+
+func TestPlaylistTracksParsesOutput(t *testing.T) {
+	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\nB\tArtist\tAlbum\t200\n")}
+	c := New(r)
+
+	got, err := c.PlaylistTracks(context.Background(), "Liked Songs")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 || got[0].Title != "A" {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPlaylistTracksNotFound(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(r)
+	_, err := c.PlaylistTracks(context.Background(), "Atlantis")
+	if !errors.Is(err, music.ErrPlaylistNotFound) {
+		t.Fatalf("err = %v; want ErrPlaylistNotFound", err)
+	}
+}
+
+func TestPlaylistTracksNotRunning(t *testing.T) {
+	r := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(r)
+	_, err := c.PlaylistTracks(context.Background(), "Liked Songs")
+	if !errors.Is(err, music.ErrNotRunning) {
+		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
