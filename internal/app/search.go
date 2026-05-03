@@ -71,15 +71,24 @@ func renderSearch(s *searchState) string {
 	return lipgloss.NewStyle().Margin(0, 2).Render(out)
 }
 
+// playSearchSelection invokes PlayTrack for the highlighted result.
+func playSearchSelection(client music.Client, seq uint64, persistentID string) tea.Cmd {
+	return func() tea.Msg {
+		return searchPlayedMsg{seq: seq, err: client.PlayTrack(context.Background(), persistentID)}
+	}
+}
+
 // handleSearchKey routes keystrokes when the search modal is open. Transport
 // keys do NOT fall through (unlike the browser); the modal is fully captive
-// the way the picker is. Tasks 11 will extend this with arrow keys, enter, and r.
+// the way the picker is.
+// NOTE: 'r' is treated as refresh inside the modal (not appended to the query).
+// This is a documented trade-off: queries containing 'r' will trigger a refresh
+// instead of appending the character.
 func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:
 		m.search = nil
 		return m, nil
-
 	case tea.KeyBackspace:
 		if len(m.search.query) == 0 {
 			return m, nil
@@ -91,8 +100,40 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.search.total = 0
 		m.search.err = nil
 		return m, scheduleSearchDebounce(m.search.seq)
-
+	case tea.KeyUp:
+		if m.search.cursor > 0 {
+			m.search.cursor--
+		}
+		return m, nil
+	case tea.KeyDown:
+		if m.search.cursor < len(m.search.results)-1 {
+			m.search.cursor++
+		}
+		return m, nil
+	case tea.KeyEnter:
+		if len(m.search.results) == 0 {
+			return m, nil
+		}
+		pid := m.search.results[m.search.cursor].PersistentID
+		return m, playSearchSelection(m.client, m.search.seq, pid)
+	case tea.KeySpace:
+		m.search.query += " "
+		m.search.seq++
+		m.search.results = nil
+		m.search.total = 0
+		m.search.err = nil
+		return m, scheduleSearchDebounce(m.search.seq)
 	case tea.KeyRunes:
+		// Single-rune special-case: 'r' is refresh; everything else appends.
+		if len(msg.Runes) == 1 && msg.Runes[0] == 'r' {
+			if m.search.query == "" {
+				return m, nil
+			}
+			m.search.seq++
+			m.search.loading = true
+			m.search.err = nil
+			return m, fetchSearch(m.client, m.search.seq, m.search.query)
+		}
 		m.search.query += string(msg.Runes)
 		m.search.seq++
 		m.search.results = nil

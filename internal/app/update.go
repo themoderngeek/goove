@@ -132,6 +132,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.search.total = msg.result.Total
 		m.search.cursor = 0
 		return m, nil
+
+	case searchPlayedMsg:
+		if m.search == nil || msg.seq != m.search.seq {
+			return m, nil
+		}
+		if msg.err != nil {
+			m.search.err = msg.err
+			return m, nil
+		}
+		m.search = nil
+		return m, nil
 	}
 	return m, nil
 }

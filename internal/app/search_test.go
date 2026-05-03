@@ -260,3 +260,146 @@ func TestResultsMsg_FreshPopulatesAndRanks(t *testing.T) {
 		t.Errorf("cursor should reset to 0, got %d", mm.search.cursor)
 	}
 }
+
+func TestArrowDown_MovesCursor(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{
+		results: []domain.Track{{Title: "A", PersistentID: "1"}, {Title: "B", PersistentID: "2"}},
+	}
+	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if out.(Model).search.cursor != 1 {
+		t.Errorf("expected cursor=1, got %d", out.(Model).search.cursor)
+	}
+}
+
+func TestArrowUp_DecrementsCursor(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{
+		results: []domain.Track{{}, {}},
+		cursor:  1,
+	}
+	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if out.(Model).search.cursor != 0 {
+		t.Errorf("expected cursor=0, got %d", out.(Model).search.cursor)
+	}
+}
+
+func TestArrowDown_AtEnd_NoOp(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{
+		results: []domain.Track{{}, {}},
+		cursor:  1,
+	}
+	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if out.(Model).search.cursor != 1 {
+		t.Errorf("cursor should not advance past end")
+	}
+}
+
+func TestEnter_PlaysHighlightedAndClosesModal(t *testing.T) {
+	m, client := connectedTestModel(t)
+	client.SetLibraryTracks([]domain.Track{
+		{Title: "A", PersistentID: "PID-A"},
+		{Title: "B", PersistentID: "PID-B"},
+	})
+	m.search = &searchState{
+		query: "x",
+		results: []domain.Track{
+			{Title: "A", PersistentID: "PID-A"},
+			{Title: "B", PersistentID: "PID-B"},
+		},
+		cursor: 1,
+	}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// The cmd should call PlayTrack on PID-B and emit searchPlayedMsg.
+	msg := cmd()
+	if _, ok := msg.(searchPlayedMsg); !ok {
+		t.Errorf("expected searchPlayedMsg, got %T", msg)
+	}
+	if len(client.PlayTrackRecord()) != 1 || client.PlayTrackRecord()[0].PersistentID != "PID-B" {
+		t.Errorf("PlayTrack not called with PID-B: %+v", client.PlayTrackRecord())
+	}
+}
+
+func TestEnter_NoResults_NoOp(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "x"}
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("expected no Cmd when results empty")
+	}
+	if out.(Model).search == nil {
+		t.Errorf("modal should stay open when there's nothing to play")
+	}
+}
+
+func TestSearchPlayedMsg_Success_ClosesModal(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "x"}
+	out, _ := m.Update(searchPlayedMsg{err: nil})
+	if out.(Model).search != nil {
+		t.Errorf("modal should close on successful play")
+	}
+}
+
+func TestSearchPlayedMsg_Error_KeepsModalAndShowsErr(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "x"}
+	out, _ := m.Update(searchPlayedMsg{err: errSentinel("boom")})
+	mm := out.(Model)
+	if mm.search == nil {
+		t.Fatalf("modal should stay open on play error")
+	}
+	if mm.search.err == nil || mm.search.err.Error() != "boom" {
+		t.Errorf("expected err 'boom' on modal, got %v", mm.search.err)
+	}
+}
+
+func TestR_FiresQueryImmediately(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 3}
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	if cmd == nil {
+		t.Errorf("expected fetchSearch Cmd from r")
+	}
+	if !out.(Model).search.loading {
+		t.Errorf("expected loading=true")
+	}
+	if out.(Model).search.seq != 4 {
+		t.Errorf("expected seq=4 (bumped), got %d", out.(Model).search.seq)
+	}
+}
+
+func TestR_EmptyQuery_NoOp(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	if cmd != nil {
+		t.Errorf("expected no Cmd from r with empty query")
+	}
+}
+
+func TestSpace_Typed_AppendsSpace(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "led", seq: 1}
+	out, cmd := m.Update(tea.KeyMsg{Type: tea.KeySpace})
+	mm := out.(Model)
+	if mm.search.query != "led " {
+		t.Errorf("expected query 'led ', got %q", mm.search.query)
+	}
+	if mm.search.seq != 2 {
+		t.Errorf("expected seq=2, got %d", mm.search.seq)
+	}
+	if cmd == nil {
+		t.Errorf("expected debounce Cmd")
+	}
+}
+
+func TestSearchPlayedMsg_StaleSeqDropped(t *testing.T) {
+	m, _ := connectedTestModel(t)
+	m.search = &searchState{query: "stair", seq: 10}
+	out, _ := m.Update(searchPlayedMsg{seq: 5, err: nil})
+	if out.(Model).search == nil {
+		t.Errorf("modal should not close on stale played-msg")
+	}
+}

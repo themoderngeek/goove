@@ -86,3 +86,10 @@ type searchResultsMsg struct {
 	result music.SearchResult
 	err    error
 }
+
+// searchPlayedMsg carries the result of a PlayTrack call from inside search.
+// On error, the modal stays open and shows the error footer.
+type searchPlayedMsg struct {
+	seq uint64
+	err error
+}
