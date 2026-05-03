@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -412,14 +413,57 @@ func (c *Client) PlayTrackRecord() []playTrackCall {
 	return out
 }
 
-// SearchTracks is implemented in Task 4 — stub.
+// SearchTracks implements music.Client. OR-matches case-insensitive substring
+// across title/artist/album, caps at 100, returns Total = pre-cap match count.
 func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
-	return music.SearchResult{}, music.ErrUnavailable
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return music.SearchResult{}, c.forcedErr
+	}
+	if !c.running {
+		return music.SearchResult{}, music.ErrNotRunning
+	}
+	q := strings.ToLower(query)
+	var hits []domain.Track
+	for _, t := range c.libraryTracks {
+		if strings.Contains(strings.ToLower(t.Title), q) ||
+			strings.Contains(strings.ToLower(t.Artist), q) ||
+			strings.Contains(strings.ToLower(t.Album), q) {
+			hits = append(hits, t)
+		}
+	}
+	total := len(hits)
+	if len(hits) > 100 {
+		hits = hits[:100]
+	}
+	return music.SearchResult{Tracks: hits, Total: total}, nil
 }
 
-// PlayTrack is implemented in Task 4 — stub.
+// PlayTrack implements music.Client. Sets now-playing to the matching track
+// and flips IsPlaying on. ErrTrackNotFound if no library track has that ID.
 func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
-	return music.ErrUnavailable
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	for _, t := range c.libraryTracks {
+		if t.PersistentID == persistentID {
+			c.PlayTrackCalls++
+			c.playTrackRecord = append(c.playTrackRecord, playTrackCall{PersistentID: persistentID})
+			c.hasTrack = true
+			c.track = t
+			c.duration = t.Duration
+			c.position = 0
+			c.playing = true
+			return nil
+		}
+	}
+	return music.ErrTrackNotFound
 }
 
 var _ music.Client = (*Client)(nil)

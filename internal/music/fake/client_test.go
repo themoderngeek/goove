@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -403,5 +404,86 @@ func TestPlayPlaylistNotRunningReturnsErrNotRunning(t *testing.T) {
 	err := c.PlayPlaylist(context.Background(), "Liked Songs", 0)
 	if !errors.Is(err, music.ErrNotRunning) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
+	}
+}
+
+func TestSearchTracks_NotRunning(t *testing.T) {
+	c := New()
+	if _, err := c.SearchTracks(context.Background(), "x"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestSearchTracks_OrMatchesAcrossFields(t *testing.T) {
+	c := New()
+	_ = c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "Stairway to Heaven", Artist: "Led Zeppelin", Album: "IV", PersistentID: "A"},
+		{Title: "Black Dog", Artist: "Led Zeppelin", Album: "IV", PersistentID: "B"},
+		{Title: "Wonderwall", Artist: "Oasis", Album: "Morning Glory", PersistentID: "C"},
+	})
+	got, err := c.SearchTracks(context.Background(), "led")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got.Total != 2 || len(got.Tracks) != 2 {
+		t.Errorf("expected 2 hits, got total=%d len=%d", got.Total, len(got.Tracks))
+	}
+}
+
+func TestSearchTracks_Cap100(t *testing.T) {
+	c := New()
+	_ = c.Launch(context.Background())
+	tracks := make([]domain.Track, 150)
+	for i := range tracks {
+		tracks[i] = domain.Track{Title: "match", PersistentID: fmt.Sprintf("p%d", i)}
+	}
+	c.SetLibraryTracks(tracks)
+	got, err := c.SearchTracks(context.Background(), "match")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got.Total != 150 {
+		t.Errorf("expected total=150, got %d", got.Total)
+	}
+	if len(got.Tracks) != 100 {
+		t.Errorf("expected len=100, got %d", len(got.Tracks))
+	}
+}
+
+func TestPlayTrack_NotRunning(t *testing.T) {
+	c := New()
+	if err := c.PlayTrack(context.Background(), "A"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestPlayTrack_RecordsCallAndUpdatesNowPlaying(t *testing.T) {
+	c := New()
+	_ = c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "Stairway", Artist: "LZ", Album: "IV", PersistentID: "A", Duration: 8 * time.Minute},
+	})
+	if err := c.PlayTrack(context.Background(), "A"); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if c.PlayTrackCalls != 1 || len(c.PlayTrackRecord()) != 1 {
+		t.Errorf("expected one recorded call, got %d / %d", c.PlayTrackCalls, len(c.PlayTrackRecord()))
+	}
+	np, err := c.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if np.Track.Title != "Stairway" || !np.IsPlaying {
+		t.Errorf("expected Stairway playing, got %+v", np)
+	}
+}
+
+func TestPlayTrack_TrackNotFound(t *testing.T) {
+	c := New()
+	_ = c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{{PersistentID: "A"}})
+	if err := c.PlayTrack(context.Background(), "Z"); !errors.Is(err, music.ErrTrackNotFound) {
+		t.Errorf("expected ErrTrackNotFound, got %v", err)
 	}
 }
