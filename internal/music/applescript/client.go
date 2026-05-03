@@ -203,5 +203,20 @@ func (c *Client) Pause(ctx context.Context) error {
 	return err
 }
 
+// Playlists implements music.Client. Real impl in Task 7.
+func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
+	return nil, music.ErrUnavailable
+}
+
+// PlaylistTracks implements music.Client. Real impl in Task 8.
+func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error) {
+	return nil, music.ErrUnavailable
+}
+
+// PlayPlaylist implements music.Client. Real impl in Task 9.
+func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrackIndex int) error {
+	return music.ErrUnavailable
+}
+
 // Compile-time check that *Client implements music.Client.
 var _ music.Client = (*Client)(nil)

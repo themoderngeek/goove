@@ -21,6 +21,9 @@ type Client interface {
 	SetAirPlayDevice(ctx context.Context, name string) error
 	Play(ctx context.Context) error
 	Pause(ctx context.Context) error
+	Playlists(ctx context.Context) ([]domain.Playlist, error)
+	PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error)
+	PlayPlaylist(ctx context.Context, playlistName string, fromTrackIndex int) error
 }
 
 var (
@@ -31,4 +34,5 @@ var (
 	ErrNoArtwork       = errors.New("music: track has no artwork")
 	ErrDeviceNotFound  = errors.New("music: airplay device not found")
 	ErrAmbiguousDevice = errors.New("music: airplay device name matches multiple devices")
+	ErrPlaylistNotFound = errors.New("music: playlist not found")
 )

@@ -286,4 +286,19 @@ func (c *Client) SetVolume(ctx context.Context, percent int) error {
 	return nil
 }
 
+// Playlists implements music.Client. Real impl in Task 4.
+func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
+	return nil, music.ErrUnavailable
+}
+
+// PlaylistTracks implements music.Client. Real impl in Task 4.
+func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error) {
+	return nil, music.ErrUnavailable
+}
+
+// PlayPlaylist implements music.Client. Real impl in Task 4.
+func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrackIndex int) error {
+	return music.ErrUnavailable
+}
+
 var _ music.Client = (*Client)(nil)
