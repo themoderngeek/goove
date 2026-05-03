@@ -48,16 +48,20 @@ type Playlist struct {
 }
 ```
 
-New file `internal/domain/track.go`:
+**Extend the existing `domain.Track`** (defined in `internal/domain/nowplaying.go`) with a `Duration` field:
 
 ```go
 type Track struct {
-    Name     string
+    Title    string
     Artist   string
     Album    string
-    Duration time.Duration
+    Duration time.Duration // NEW — populated for playlist tracks; left zero
+                           // for NowPlaying.Track (where NowPlaying.Duration
+                           // remains the canonical per-playback duration source)
 }
 ```
+
+Reusing the existing type avoids a parallel `PlaylistTrack` shape. `NowPlaying.Duration` stays the canonical playback duration; `Track.Duration` is metadata that happens to be populated only in playlist contexts. `parseStatus` is unchanged (it leaves `Track.Duration` zero); `parsePlaylistTracks` populates it.
 
 No persistent-ID field in v1. Every other piece of the codebase (notably `targets set`) addresses by name with exact-then-substring fallback; mirroring that pattern keeps the cognitive model consistent. If real ambiguity bites in practice, a `PersistentID` field can be added without changing the interface shape.
 
@@ -126,7 +130,8 @@ goove playlists list [--json]
 goove playlists tracks <name> [--json]
     Lists tracks of the matched playlist.
     Plain: "<n>. <title> — <artist>  (<album>)  [<m:ss>]"  (1-indexed).
-    JSON:  array of {index, name, artist, album, duration_seconds}.
+    JSON:  array of {index, title, artist, album, duration_sec}
+           (matches the existing `goove status --json` track shape).
 
 goove playlists play <name> [--track N]
     Starts playback of matched playlist.
