@@ -1191,3 +1191,19 @@ func TestBrowserRRefetchesTracksOnRightPane(t *testing.T) {
 		t.Errorf("refetch name = %q; want Liked Songs", pmsg.name)
 	}
 }
+
+func TestBrowserEscReturnsToNowPlaying(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	m.mode = modeBrowser
+	m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	mm := updated.(Model)
+	if mm.mode != modeNowPlaying {
+		t.Errorf("mode = %v; want modeNowPlaying", mm.mode)
+	}
+	if mm.browser != nil {
+		t.Errorf("browser state should be cleared on esc; got %+v", mm.browser)
+	}
+}

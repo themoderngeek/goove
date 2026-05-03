@@ -58,6 +58,10 @@ func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return handleBrowserEnter(m)
 	case "r":
 		return handleBrowserRefetch(m)
+	case "esc":
+		m.mode = modeNowPlaying
+		m.browser = nil
+		return m, nil
 	}
 	return m, nil
 }
