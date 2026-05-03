@@ -27,12 +27,12 @@ type Client interface {
 }
 
 var (
-	ErrNotRunning      = errors.New("music: app not running")
-	ErrNoTrack         = errors.New("music: no track loaded")
-	ErrUnavailable     = errors.New("music: backend call failed")
-	ErrPermission      = errors.New("music: automation permission denied")
-	ErrNoArtwork       = errors.New("music: track has no artwork")
-	ErrDeviceNotFound  = errors.New("music: airplay device not found")
-	ErrAmbiguousDevice = errors.New("music: airplay device name matches multiple devices")
+	ErrNotRunning       = errors.New("music: app not running")
+	ErrNoTrack          = errors.New("music: no track loaded")
+	ErrUnavailable      = errors.New("music: backend call failed")
+	ErrPermission       = errors.New("music: automation permission denied")
+	ErrNoArtwork        = errors.New("music: track has no artwork")
+	ErrDeviceNotFound   = errors.New("music: airplay device not found")
+	ErrAmbiguousDevice  = errors.New("music: airplay device name matches multiple devices")
 	ErrPlaylistNotFound = errors.New("music: playlist not found")
 )
