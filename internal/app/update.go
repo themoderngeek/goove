@@ -154,6 +154,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.search != nil {
+		return m.handleSearchKey(msg)
+	}
+
 	if m.picker != nil {
 		return m.handlePickerKey(msg)
 	}
@@ -206,6 +210,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.mode = modeBrowser
 		m.browser = &browserState{loadingLists: true}
 		return m, fetchPlaylists(m.client)
+
+	case "/":
+		// Suppress search in Disconnected, when picker is open, or when in browser.
+		// permissionDenied is already handled at the top of Update.
+		if _, ok := m.state.(Disconnected); ok {
+			return m, nil
+		}
+		if m.picker != nil || m.mode == modeBrowser {
+			return m, nil
+		}
+		m.search = &searchState{}
+		return m, nil
 	}
 	return m, nil
 }

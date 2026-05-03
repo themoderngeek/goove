@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -64,4 +65,17 @@ func renderSearch(s *searchState) string {
 		out = card + "\n" + footerStyle.Render(footerText) + "\n" + errFooter
 	}
 	return lipgloss.NewStyle().Margin(0, 2).Render(out)
+}
+
+// handleSearchKey routes keystrokes when the search modal is open. Transport
+// keys do NOT fall through (unlike the browser); the modal is fully captive
+// the way the picker is. Future tasks will extend this with typing,
+// navigation, enter, and r.
+func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.search = nil
+		return m, nil
+	}
+	return m, nil
 }
