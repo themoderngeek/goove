@@ -44,7 +44,21 @@ If you say no, you can re-enable it under
 | `p` | previous track |
 | `+` / `=` | volume +5% |
 | `-` | volume −5% |
+| `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, esc back) |
 | `q` | quit |
+
+## Playlists from the CLI
+
+```bash
+goove playlists list                      # user + subscription playlists
+goove playlists tracks "Liked Songs"      # tracks of a playlist
+goove playlists play "Liked Songs"        # play a playlist from the start
+goove playlists play "Liked Songs" --track 5   # start from track 5 (1-based)
+
+# 'goove playlist <subcommand>' (singular) is an alias.
+# Names match exactly first, then case-insensitive substring; multiple
+# matches are listed and the command exits 1.
+```
 
 ## Logs
 
