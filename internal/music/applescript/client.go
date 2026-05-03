@@ -17,6 +17,15 @@ import (
 
 const callTimeout = 2 * time.Second
 
+// applescriptEscape escapes embedded double-quote and backslash characters so
+// the value can be safely interpolated inside an AppleScript string literal.
+// It also strips control characters (tab, linefeed, carriage return) which
+// would otherwise corrupt the tab/linefeed-delimited output formats.
+func applescriptEscape(s string) string {
+	stripped := strings.NewReplacer("\t", " ", "\n", " ", "\r", " ").Replace(s)
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(stripped)
+}
+
 type Client struct {
 	runner Runner
 }
@@ -249,10 +258,19 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 	}
 }
 
-// SearchTracks is implemented in Task 5 — stub returns ErrUnavailable so the
-// interface contract is satisfied while this is being built up.
+// SearchTracks implements music.Client. OR-matches the query against title,
+// artist, and album. Returns up to 100 tracks; Total carries the full match
+// count for truncation hints.
 func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
-	return music.SearchResult{}, music.ErrUnavailable
+	out, err := c.run(ctx, fmt.Sprintf(scriptSearchTracks, applescriptEscape(query)))
+	if err != nil {
+		return music.SearchResult{}, err
+	}
+	tracks, total, err := parseSearchTracks(string(out))
+	if err != nil {
+		return music.SearchResult{}, err
+	}
+	return music.SearchResult{Tracks: tracks, Total: total}, nil
 }
 
 // PlayTrack is implemented in Task 6 — stub returns ErrUnavailable.

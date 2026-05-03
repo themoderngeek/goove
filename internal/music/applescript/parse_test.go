@@ -348,3 +348,72 @@ func TestParsePlaylistTracksSkipsMalformedRow(t *testing.T) {
 		t.Errorf("got = %+v; expected malformed row to be skipped", got)
 	}
 }
+
+func TestParseSearchTracks_NotRunning(t *testing.T) {
+	if _, _, err := parseSearchTracks("NOT_RUNNING\n"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestParseSearchTracks_Empty(t *testing.T) {
+	tracks, total, err := parseSearchTracks("0\n")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if total != 0 || len(tracks) != 0 {
+		t.Errorf("expected empty, got total=%d tracks=%v", total, tracks)
+	}
+}
+
+func TestParseSearchTracks_HappyPath(t *testing.T) {
+	raw := "2\n" +
+		"PID-A\tStairway to Heaven\tLed Zeppelin\tIV\t482\n" +
+		"PID-B\tBlack Dog\tLed Zeppelin\tIV\t295\n"
+	tracks, total, err := parseSearchTracks(raw)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("expected total=2, got %d", total)
+	}
+	if len(tracks) != 2 {
+		t.Fatalf("expected 2 tracks, got %d", len(tracks))
+	}
+	if tracks[0].PersistentID != "PID-A" || tracks[0].Title != "Stairway to Heaven" {
+		t.Errorf("track[0] wrong: %+v", tracks[0])
+	}
+	if tracks[1].Duration != 295*time.Second {
+		t.Errorf("track[1] duration wrong: %v", tracks[1].Duration)
+	}
+}
+
+func TestParseSearchTracks_TruncationTotalGreaterThanRows(t *testing.T) {
+	raw := "412\n" +
+		"PID-A\tA\tArtist\tAlbum\t100\n"
+	tracks, total, err := parseSearchTracks(raw)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if total != 412 {
+		t.Errorf("expected total=412, got %d", total)
+	}
+	if len(tracks) != 1 {
+		t.Errorf("expected 1 row, got %d", len(tracks))
+	}
+}
+
+func TestParseSearchTracks_MalformedRowsSkipped(t *testing.T) {
+	// Wrong field count and unparseable duration are skipped defensively.
+	raw := "3\n" +
+		"PID-A\tTitle\tArtist\tAlbum\t100\n" +
+		"PID-B\tTitle\tArtistOnly\n" + // 3 fields — bad
+		"PID-C\tTitle\tArtist\tAlbum\tnot-a-float\n" + // duration unparseable
+		"PID-D\tTitle\tArtist\tAlbum\t200\n"
+	tracks, _, err := parseSearchTracks(raw)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if len(tracks) != 2 {
+		t.Errorf("expected 2 valid rows, got %d", len(tracks))
+	}
+}

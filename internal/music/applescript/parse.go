@@ -163,6 +163,41 @@ func parsePlaylistTracks(raw string) ([]domain.Track, error) {
 	return tracks, nil
 }
 
+// parseSearchTracks parses scriptSearchTracks output. The first line is the
+// total underlying match count; following lines (up to 100) are tab-separated
+// track records. NOT_RUNNING maps to ErrNotRunning. Malformed rows (wrong
+// field count or non-numeric duration) are skipped defensively.
+func parseSearchTracks(raw string) ([]domain.Track, int, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "NOT_RUNNING" {
+		return nil, 0, music.ErrNotRunning
+	}
+	lines := strings.Split(trimmed, "\n")
+	total, err := strconv.Atoi(strings.TrimSpace(lines[0]))
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: search total parse: %v", music.ErrUnavailable, err)
+	}
+	var tracks []domain.Track
+	for _, line := range lines[1:] {
+		fields := strings.Split(line, "\t")
+		if len(fields) != 5 {
+			continue
+		}
+		secs, err := strconv.ParseFloat(strings.TrimSpace(fields[4]), 64)
+		if err != nil {
+			continue
+		}
+		tracks = append(tracks, domain.Track{
+			PersistentID: fields[0],
+			Title:        fields[1],
+			Artist:       fields[2],
+			Album:        fields[3],
+			Duration:     time.Duration(secs * float64(time.Second)),
+		})
+	}
+	return tracks, total, nil
+}
+
 // matchAirPlayDevice picks the single device whose Name matches the user's input.
 // Exact match (case-sensitive) wins immediately; otherwise case-insensitive
 // substring match. Returns ErrDeviceNotFound if no matches; ErrAmbiguousDevice
