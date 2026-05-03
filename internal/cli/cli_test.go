@@ -1446,3 +1446,18 @@ func TestPlaylistsPlayNotRunningExit1(t *testing.T) {
 		t.Errorf("stderr missing 'isn't running': %q", stderr.String())
 	}
 }
+
+func TestPlaylistSingularAliasRoutes(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 1}})
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"playlist", "list"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit = %d; want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "Liked Songs") {
+		t.Errorf("singular alias did not route to playlists list: %q", stdout.String())
+	}
+}
