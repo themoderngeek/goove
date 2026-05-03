@@ -273,9 +273,24 @@ func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchRe
 	return music.SearchResult{Tracks: tracks, Total: total}, nil
 }
 
-// PlayTrack is implemented in Task 6 — stub returns ErrUnavailable.
+// PlayTrack implements music.Client. Plays the track with the given persistent
+// ID; replaces the current play context. ErrTrackNotFound if no library track
+// has that ID.
 func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
-	return music.ErrUnavailable
+	out, err := c.run(ctx, fmt.Sprintf(scriptPlayTrack, applescriptEscape(persistentID)))
+	if err != nil {
+		return err
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "OK":
+		return nil
+	case "NOT_RUNNING":
+		return music.ErrNotRunning
+	case "NOT_FOUND":
+		return music.ErrTrackNotFound
+	default:
+		return fmt.Errorf("%w: unexpected scriptPlayTrack output: %q", music.ErrUnavailable, out)
+	}
 }
 
 // Compile-time check that *Client implements music.Client.

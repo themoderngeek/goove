@@ -601,3 +601,39 @@ func TestSearchTracks_NotRunningMaps(t *testing.T) {
 		t.Errorf("expected ErrNotRunning, got %v", err)
 	}
 }
+
+func TestPlayTrack_OK(t *testing.T) {
+	runner := &fakeRunner{out: []byte("OK\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); err != nil {
+		t.Errorf("unexpected err: %v", err)
+	}
+	if !strings.Contains(runner.script, `persistent ID is "PID-A"`) {
+		t.Errorf("script missing persistent ID: %s", runner.script)
+	}
+}
+
+func TestPlayTrack_NotFoundMaps(t *testing.T) {
+	runner := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); !errors.Is(err, music.ErrTrackNotFound) {
+		t.Errorf("expected ErrTrackNotFound, got %v", err)
+	}
+}
+
+func TestPlayTrack_NotRunningMaps(t *testing.T) {
+	runner := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestPlayTrack_EscapesPersistentID(t *testing.T) {
+	runner := &fakeRunner{out: []byte("OK\n")}
+	c := New(runner)
+	_ = c.PlayTrack(context.Background(), `weird " id`)
+	if !strings.Contains(runner.script, `persistent ID is "weird \" id"`) {
+		t.Errorf("persistent ID not escaped:\n%s", runner.script)
+	}
+}
