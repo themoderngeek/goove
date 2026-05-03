@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/themoderngeek/goove/internal/domain"
@@ -204,9 +205,74 @@ func resolvePlaylistName(client music.Client, name string, stderr io.Writer) (st
 	}
 }
 
-// Forward decl — body in Task 13.
-
 func cmdPlaylistsPlay(args []string, client music.Client, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "goove: playlists play not yet implemented")
-	return 1
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "goove: playlists play requires a playlist name")
+		return 1
+	}
+
+	// Parse args: first non-flag positional is the name. --track N consumes
+	// the next argument. Anything else is unknown (silently ignored, matching
+	// the targets/volume style).
+	var name string
+	trackOneBased := 1 // default = play from track 1
+	trackProvided := false
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch a {
+		case "--track":
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, "goove: --track requires a value")
+				return 1
+			}
+			n, err := strconv.Atoi(args[i+1])
+			if err != nil {
+				fmt.Fprintf(stderr, "goove: invalid --track value: %s\n", args[i+1])
+				return 1
+			}
+			trackOneBased = n
+			trackProvided = true
+			i++
+		default:
+			if name == "" {
+				name = a
+			}
+		}
+	}
+	if name == "" {
+		fmt.Fprintln(stderr, "goove: playlists play requires a playlist name")
+		return 1
+	}
+
+	resolved, code := resolvePlaylistName(client, name, stderr)
+	if code != 0 {
+		return code
+	}
+
+	// Validate against the playlist's tracks. We always need this fetch:
+	//   - to detect empty playlists (refuse to call PlayPlaylist)
+	//   - to range-check --track when provided
+	tracks, err := client.PlaylistTracks(context.Background(), resolved)
+	if err != nil {
+		return errorExit(err, stderr, true)
+	}
+	if len(tracks) == 0 {
+		fmt.Fprintf(stderr, "goove: playlist has no tracks: %s\n", resolved)
+		return 1
+	}
+	if trackProvided && (trackOneBased < 1 || trackOneBased > len(tracks)) {
+		fmt.Fprintf(stderr, "goove: track index out of range: %d (playlist has %d tracks)\n",
+			trackOneBased, len(tracks))
+		return 1
+	}
+
+	fromIdx := 0
+	if trackProvided {
+		fromIdx = trackOneBased - 1 // 1-based → 0-based
+	}
+
+	if err := client.PlayPlaylist(context.Background(), resolved, fromIdx); err != nil {
+		return errorExit(err, stderr, true)
+	}
+	return 0
 }
