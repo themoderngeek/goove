@@ -15,7 +15,11 @@ import (
 	"github.com/themoderngeek/goove/internal/music"
 )
 
-const callTimeout = 2 * time.Second
+const (
+	callTimeout   = 2 * time.Second
+	// Empirically: a 133-track library search measured ~8.5s; budget here is generous to protect users with much larger libraries.
+	searchTimeout = 30 * time.Second
+)
 
 // applescriptEscape escapes embedded double-quote and backslash characters so
 // the value can be safely interpolated inside an AppleScript string literal.
@@ -68,7 +72,14 @@ func (c *Client) Status(ctx context.Context) (domain.NowPlaying, error) {
 // run wraps the runner with a per-call timeout and converts runner errors
 // into music sentinel errors.
 func (c *Client) run(ctx context.Context, script string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, callTimeout)
+	return c.runWithTimeout(ctx, script, callTimeout)
+}
+
+// runWithTimeout is like run but uses the supplied timeout instead of
+// callTimeout. Use it for operations (e.g. full-library search) that are
+// inherently slower than a single-track metadata fetch.
+func (c *Client) runWithTimeout(ctx context.Context, script string, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	out, err := c.runner.Run(ctx, script)
 	if err == nil {
@@ -262,7 +273,7 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 // artist, and album. Returns up to 100 tracks; Total carries the full match
 // count for truncation hints.
 func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
-	out, err := c.run(ctx, fmt.Sprintf(scriptSearchTracks, applescriptEscape(query)))
+	out, err := c.runWithTimeout(ctx, fmt.Sprintf(scriptSearchTracks, applescriptEscape(query)), searchTimeout)
 	if err != nil {
 		return music.SearchResult{}, err
 	}
