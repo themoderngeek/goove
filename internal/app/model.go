@@ -43,6 +43,22 @@ type pickerState struct {
 	err     error
 }
 
+// searchState is the modal search overlay state.
+// nil on Model means "search not open"; non-nil means "search modal showing."
+//
+// seq is bumped on every keystroke; in-flight debounce ticks and result
+// messages carry the seq they were issued under, so stale ones are dropped
+// when seq advances. Same pattern as the artwork fetch's track-key guard.
+type searchState struct {
+	query   string
+	seq     uint64
+	loading bool
+	results []domain.Track
+	total   int
+	cursor  int
+	err     error
+}
+
 type viewMode int
 
 const (
@@ -93,6 +109,7 @@ type Model struct {
 	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
 	mode     viewMode
 	browser  *browserState
+	search   *searchState // nil ⇒ search modal not open
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
