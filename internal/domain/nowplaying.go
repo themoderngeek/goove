@@ -3,10 +3,11 @@ package domain
 import "time"
 
 type Track struct {
-	Title    string
-	Artist   string
-	Album    string
-	Duration time.Duration // populated by playlist tracks; left zero for NowPlaying.Track
+	Title        string
+	Artist       string
+	Album        string
+	Duration     time.Duration // populated by playlist tracks; left zero for NowPlaying.Track
+	PersistentID string        // populated by search results; left empty elsewhere — Apple Music's stable per-library track handle, used by PlayTrack
 }
 
 type NowPlaying struct {

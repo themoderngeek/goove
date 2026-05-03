@@ -150,3 +150,38 @@ func TestIntegrationPlaylistsListsAtLeastZero(t *testing.T) {
 	}
 	t.Logf("found %d playlists", len(got))
 }
+
+// TestIntegrationSearchTracks_Smoke runs against the real Music.app library.
+// It does not assert on which tracks come back — only that the call succeeds,
+// returns a non-negative total, and that any returned track has a non-empty
+// persistent ID.
+func TestIntegrationSearchTracks_Smoke(t *testing.T) {
+	c := NewDefault()
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	defer cancel()
+
+	running, err := c.IsRunning(ctx)
+	if err != nil {
+		t.Fatalf("IsRunning err = %v", err)
+	}
+	if !running {
+		t.Skip("Music.app is not running; cannot exercise SearchTracks")
+	}
+
+	got, err := c.SearchTracks(ctx, "a")
+	if err != nil {
+		t.Fatalf("SearchTracks: %v", err)
+	}
+	if got.Total < 0 {
+		t.Errorf("Total negative: %d", got.Total)
+	}
+	for _, tr := range got.Tracks {
+		if tr.PersistentID == "" {
+			t.Errorf("track without PersistentID: %+v", tr)
+		}
+	}
+	t.Logf("SearchTracks(\"a\"): total=%d returned=%d", got.Total, len(got.Tracks))
+
+	// PlayTrack is intentionally not exercised here — calling it in an
+	// integration test would interrupt the user's active playback.
+}

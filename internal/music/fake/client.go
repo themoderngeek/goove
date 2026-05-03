@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,14 @@ type Client struct {
 	playlistTracks     map[string][]domain.Track
 	playPlaylistRecord []playPlaylistCall
 
+	// Set by SetTracks; queried by SearchTracks. Distinct from playlistTracks
+	// because library search is a property of the whole library, not of any
+	// one playlist.
+	libraryTracks []domain.Track
+
+	// Records of PlayTrack invocations.
+	playTrackRecord []playTrackCall
+
 	// Counters useful for assertions.
 	PlayPauseCalls    int
 	PlayCalls         int
@@ -37,12 +46,17 @@ type Client struct {
 	SetVolumeCalls    int
 	LaunchCalls       int
 	PlayPlaylistCalls int
+	PlayTrackCalls    int
 }
 
 // playPlaylistCall records one PlayPlaylist invocation.
 type playPlaylistCall struct {
 	Name    string
 	FromIdx int
+}
+
+type playTrackCall struct {
+	PersistentID string
 }
 
 func New() *Client {
@@ -381,6 +395,75 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 		Name: playlistName, FromIdx: fromTrackIndex,
 	})
 	return nil
+}
+
+// SetLibraryTracks supplies the in-memory library searched by SearchTracks.
+func (c *Client) SetLibraryTracks(tracks []domain.Track) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.libraryTracks = tracks
+}
+
+// PlayTrackRecord returns a copy of the recorded PlayTrack invocations.
+func (c *Client) PlayTrackRecord() []playTrackCall {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]playTrackCall, len(c.playTrackRecord))
+	copy(out, c.playTrackRecord)
+	return out
+}
+
+// SearchTracks implements music.Client. OR-matches case-insensitive substring
+// across title/artist/album, caps at 100, returns Total = pre-cap match count.
+func (c *Client) SearchTracks(ctx context.Context, query string) (music.SearchResult, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return music.SearchResult{}, c.forcedErr
+	}
+	if !c.running {
+		return music.SearchResult{}, music.ErrNotRunning
+	}
+	q := strings.ToLower(query)
+	var hits []domain.Track
+	for _, t := range c.libraryTracks {
+		if strings.Contains(strings.ToLower(t.Title), q) ||
+			strings.Contains(strings.ToLower(t.Artist), q) ||
+			strings.Contains(strings.ToLower(t.Album), q) {
+			hits = append(hits, t)
+		}
+	}
+	total := len(hits)
+	if len(hits) > 100 {
+		hits = hits[:100]
+	}
+	return music.SearchResult{Tracks: hits, Total: total}, nil
+}
+
+// PlayTrack implements music.Client. Sets now-playing to the matching track
+// and flips IsPlaying on. ErrTrackNotFound if no library track has that ID.
+func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forcedErr != nil {
+		return c.forcedErr
+	}
+	if !c.running {
+		return music.ErrNotRunning
+	}
+	for _, t := range c.libraryTracks {
+		if t.PersistentID == persistentID {
+			c.PlayTrackCalls++
+			c.playTrackRecord = append(c.playTrackRecord, playTrackCall{PersistentID: persistentID})
+			c.hasTrack = true
+			c.track = t
+			c.duration = t.Duration
+			c.position = 0
+			c.playing = true
+			return nil
+		}
+	}
+	return music.ErrTrackNotFound
 }
 
 var _ music.Client = (*Client)(nil)

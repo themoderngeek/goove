@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
 )
 
@@ -110,6 +111,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case searchDebounceMsg:
+		if m.search == nil || msg.seq != m.search.seq {
+			return m, nil
+		}
+		if m.search.query == "" {
+			return m, nil
+		}
+		m.search.loading = true
+		return m, fetchSearch(m.client, m.search.seq, m.search.query)
+
+	case searchResultsMsg:
+		if m.search == nil || msg.seq != m.search.seq || msg.query != m.search.query {
+			return m, nil
+		}
+		m.search.loading = false
+		m.search.err = msg.err
+		m.search.results = domain.RankSearchResults(msg.result.Tracks, msg.query)
+		m.search.total = msg.result.Total
+		m.search.cursor = 0
+		return m, nil
+
+	case searchPlayedMsg:
+		if m.search == nil || msg.seq != m.search.seq {
+			return m, nil
+		}
+		if msg.err != nil {
+			m.search.err = msg.err
+			return m, nil
+		}
+		m.search = nil
+		return m, nil
 	}
 	return m, nil
 }
@@ -152,6 +185,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		return m, nil
+	}
+
+	if m.search != nil {
+		return m.handleSearchKey(msg)
 	}
 
 	if m.picker != nil {
@@ -206,6 +243,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.mode = modeBrowser
 		m.browser = &browserState{loadingLists: true}
 		return m, fetchPlaylists(m.client)
+
+	case "/":
+		// Suppress search in Disconnected, when picker is open, or when in browser.
+		// permissionDenied is already handled at the top of Update.
+		if _, ok := m.state.(Disconnected); ok {
+			return m, nil
+		}
+		if m.picker != nil || m.mode == modeBrowser {
+			return m, nil
+		}
+		m.search = &searchState{}
+		return m, nil
 	}
 	return m, nil
 }

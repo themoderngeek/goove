@@ -563,3 +563,77 @@ func TestPlayPlaylistNotRunningReturnsErrNotRunning(t *testing.T) {
 		t.Fatalf("err = %v; want ErrNotRunning", err)
 	}
 }
+
+func TestSearchTracks_HappyPath(t *testing.T) {
+	runner := &fakeRunner{
+		out: []byte("2\n" +
+			"PID-A\tStairway\tLed Zeppelin\tIV\t482\n" +
+			"PID-B\tBlack Dog\tLed Zeppelin\tIV\t295\n"),
+	}
+	c := New(runner)
+	got, err := c.SearchTracks(context.Background(), "led")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got.Total != 2 || len(got.Tracks) != 2 {
+		t.Errorf("got Total=%d Tracks=%d", got.Total, len(got.Tracks))
+	}
+	if !strings.Contains(runner.script, `set q to "led"`) {
+		t.Errorf("script did not contain interpolated query: %s", runner.script)
+	}
+}
+
+func TestSearchTracks_EscapesQuotesAndBackslashes(t *testing.T) {
+	runner := &fakeRunner{out: []byte("0\n")}
+	c := New(runner)
+	if _, err := c.SearchTracks(context.Background(), `quote " and back \`); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !strings.Contains(runner.script, `set q to "quote \" and back \\"`) {
+		t.Errorf("query not escaped correctly:\n%s", runner.script)
+	}
+}
+
+func TestSearchTracks_NotRunningMaps(t *testing.T) {
+	runner := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(runner)
+	if _, err := c.SearchTracks(context.Background(), "x"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestPlayTrack_OK(t *testing.T) {
+	runner := &fakeRunner{out: []byte("OK\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); err != nil {
+		t.Errorf("unexpected err: %v", err)
+	}
+	if !strings.Contains(runner.script, `persistent ID is "PID-A"`) {
+		t.Errorf("script missing persistent ID: %s", runner.script)
+	}
+}
+
+func TestPlayTrack_NotFoundMaps(t *testing.T) {
+	runner := &fakeRunner{out: []byte("NOT_FOUND\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); !errors.Is(err, music.ErrTrackNotFound) {
+		t.Errorf("expected ErrTrackNotFound, got %v", err)
+	}
+}
+
+func TestPlayTrack_NotRunningMaps(t *testing.T) {
+	runner := &fakeRunner{out: []byte("NOT_RUNNING\n")}
+	c := New(runner)
+	if err := c.PlayTrack(context.Background(), "PID-A"); !errors.Is(err, music.ErrNotRunning) {
+		t.Errorf("expected ErrNotRunning, got %v", err)
+	}
+}
+
+func TestPlayTrack_EscapesPersistentID(t *testing.T) {
+	runner := &fakeRunner{out: []byte("OK\n")}
+	c := New(runner)
+	_ = c.PlayTrack(context.Background(), `weird " id`)
+	if !strings.Contains(runner.script, `persistent ID is "weird \" id"`) {
+		t.Errorf("persistent ID not escaped:\n%s", runner.script)
+	}
+}

@@ -229,3 +229,50 @@ const scriptPlayPlaylistFromTrack = `tell application "Music"
 	end try
 	return "OK"
 end tell`
+
+// scriptSearchTracks runs an OR-matched substring search across the library
+// and returns:
+//
+//	first line: total match count (digits only)
+//	then up to 100 tab-separated track lines:
+//	  persistent_id\ttitle\tartist\talbum\tduration_seconds
+//
+// %s is the EXACT search query. Returns "NOT_RUNNING" if Music isn't running.
+//
+// SECURITY: the query is interpolated unescaped — same trust model as
+// scriptSetAirPlay and scriptPlaylistTracks. Callers must escape embedded
+// `"` and `\` before calling (handled in client.SearchTracks via
+// applescriptEscape).
+//
+// NOTE: track names containing tabs or linefeeds would corrupt parsing —
+// accepted MVP limitation matching the rest of the codebase.
+const scriptSearchTracks = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	set q to "%s"
+	set hits to (every track of library playlist 1 whose ¬
+		(name contains q) or (artist contains q) or (album contains q))
+	set total to count of hits
+	if total is 0 then return "0"
+	if total > 100 then
+		set hits to items 1 thru 100 of hits
+	end if
+	set out to (total as text)
+	repeat with t in hits
+		set ln to (persistent ID of t) & tab & (name of t) & tab & ¬
+				  (artist of t) & tab & (album of t) & tab & ((duration of t) as text)
+		set out to out & linefeed & ln
+	end repeat
+	return out
+end tell`
+
+// scriptPlayTrack starts playback of the track with the given persistent ID.
+// %s is the EXACT persistent ID. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+const scriptPlayTrack = `tell application "Music"
+	if not running then return "NOT_RUNNING"
+	try
+		play (some track of library playlist 1 whose persistent ID is "%s")
+	on error
+		return "NOT_FOUND"
+	end try
+	return "OK"
+end tell`

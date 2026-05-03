@@ -14,7 +14,7 @@ A small TUI for controlling Apple Music on macOS, written in Go.
 │      volume  ▮▮▮▮▮▯▯▯▯▯   50%                        │
 │                                                      │
 └──────────────────────────────────────────────────────┘
- space: play/pause   n: next   p: prev   +/-: vol   o: output   l: browse   q: quit
+ space: play/pause   n: next   p: prev   +/-: vol   /: search   o: output   l: browse   q: quit
 ```
 
 ## Install
@@ -44,6 +44,7 @@ If you say no, you can re-enable it under
 | `p` | previous track |
 | `+` / `=` | volume +5% |
 | `-` | volume −5% |
+| `/` | open search modal (modal keys: type to query, ↑↓ nav, ⏎ play, `^R` refresh, esc cancel) |
 | `o` | open output (AirPlay) picker (picker keys: ↑↓ nav, ⏎ select, esc cancel) |
 | `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, `r` refresh, esc back) |
 | `q` | quit |
