@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -173,7 +174,7 @@ func renderBrowser(m Model) string {
 		totalWidth = 80 // safe default
 	}
 	leftWidth := totalWidth/2 - 1
-	rightWidth := totalWidth - leftWidth - 3 // 3 for " │ "
+	rightWidth := totalWidth - leftWidth - 7 // 7 = "│ " + " │ " + " │"  (left border + inner separator + right border)
 	height := m.height - 4
 	if height < 5 {
 		height = 20
@@ -184,7 +185,7 @@ func renderBrowser(m Model) string {
 
 	var out strings.Builder
 	out.WriteString("┌─ goove · browser ")
-	out.WriteString(strings.Repeat("─", maxInt(0, totalWidth-20)))
+	out.WriteString(strings.Repeat("─", max(0, totalWidth-20)))
 	out.WriteString("┐\n")
 	for i := 0; i < height; i++ {
 		left := ""
@@ -303,18 +304,20 @@ func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if len(s) <= width {
+	if utf8.RuneCountInString(s) <= width {
 		return s
 	}
 	if width <= 1 {
-		return s[:width]
+		// Return just the first rune.
+		_, size := utf8.DecodeRuneInString(s)
+		return s[:size]
 	}
-	return s[:width-1] + "…"
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
+	// Walk runes up to width-1, then append the ellipsis.
+	i, count := 0, 0
+	for i < len(s) && count < width-1 {
+		_, size := utf8.DecodeRuneInString(s[i:])
+		i += size
+		count++
 	}
-	return b
+	return s[:i] + "…"
 }
