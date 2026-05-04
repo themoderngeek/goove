@@ -1245,3 +1245,62 @@ func TestBrowserModeTransportKeysStillFire(t *testing.T) {
 		})
 	}
 }
+
+func TestTabAdvancesFocusFromPlaylistsToSearch(t *testing.T) {
+	m := newTestModel()
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	got := updated.(Model)
+	if got.focusZ != focusSearch {
+		t.Errorf("focusZ after Tab = %v; want focusSearch", got.focusZ)
+	}
+}
+
+func TestShiftTabReversesFocus(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusOutput
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	got := updated.(Model)
+	if got.focusZ != focusSearch {
+		t.Errorf("focusZ after Shift-Tab from Output = %v; want focusSearch", got.focusZ)
+	}
+}
+
+func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
+	tests := []struct {
+		key  rune
+		want focus
+	}{
+		{'1', focusPlaylists},
+		{'2', focusSearch},
+		{'3', focusOutput},
+		{'4', focusMain},
+	}
+	for _, tt := range tests {
+		m := newTestModel()
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{tt.key}})
+		got := updated.(Model)
+		if got.focusZ != tt.want {
+			t.Errorf("focusZ after '%c' = %v; want %v", tt.key, got.focusZ, tt.want)
+		}
+	}
+}
+
+func TestFocusKeysSuppressedWhilePickerOpen(t *testing.T) {
+	m := newTestModel()
+	m.picker = &pickerState{}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	got := updated.(Model)
+	if got.focusZ != focusPlaylists {
+		t.Errorf("focusZ after Tab while picker open = %v; want focusPlaylists (no change)", got.focusZ)
+	}
+}
+
+func TestFocusKeysSuppressedWhileSearchModalOpen(t *testing.T) {
+	m := newTestModel()
+	m.search = &searchState{}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	got := updated.(Model)
+	if got.focusZ != focusPlaylists {
+		t.Errorf("focusZ after '2' while search modal open = %v; want focusPlaylists (no change)", got.focusZ)
+	}
+}

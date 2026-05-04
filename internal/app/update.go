@@ -203,6 +203,30 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
+	case "tab":
+		m.focusZ = nextFocus(m.focusZ)
+		return m, nil
+
+	case "shift+tab":
+		m.focusZ = prevFocus(m.focusZ)
+		return m, nil
+
+	case "1":
+		m.focusZ = focusPlaylists
+		return m, nil
+
+	case "2":
+		m.focusZ = focusSearch
+		return m, nil
+
+	case "3":
+		m.focusZ = focusOutput
+		return m, nil
+
+	case "4":
+		m.focusZ = focusMain
+		return m, nil
+
 	case "q":
 		return m, tea.Quit
 
