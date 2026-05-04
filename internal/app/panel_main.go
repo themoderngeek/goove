@@ -157,6 +157,12 @@ func handleMainKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 			pid := tracks[m.main.cursor].PersistentID
 			return m, playTrack(m.client, pid), true
 		}
+	case "esc":
+		if m.main.mode == mainPaneSearchResults {
+			m.main.mode = mainPaneTracks
+			m.main.cursor = 0
+		}
+		return m, nil, true
 	}
 	return m, nil, false
 }

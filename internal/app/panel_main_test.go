@@ -114,6 +114,33 @@ func TestMainTracksEnterIsNoOpWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestMainPaneEscReturnsToTracksFromSearchResults(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = []domain.Track{{Title: "x"}}
+	m.main.cursor = 0
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got := updated.(Model)
+	if got.main.mode != mainPaneTracks {
+		t.Errorf("main.mode after esc = %v; want mainPaneTracks", got.main.mode)
+	}
+	if got.main.cursor != 0 {
+		t.Errorf("cursor = %d; want 0 (reset)", got.main.cursor)
+	}
+}
+
+func TestMainPaneEscInTracksModeIsNoOp(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusMain
+	m.main.mode = mainPaneTracks
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got := updated.(Model)
+	if got.main.mode != mainPaneTracks {
+		t.Errorf("main.mode after esc in tracks mode = %v; want unchanged", got.main.mode)
+	}
+}
+
 func TestMainPaneShowsTrackFetchErrorForSelectedPlaylist(t *testing.T) {
 	m := newTestModel()
 	m.main.mode = mainPaneTracks
