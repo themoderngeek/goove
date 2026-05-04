@@ -17,7 +17,6 @@ const (
 	minLayoutHeight  = 22 // below this, the four-zone layout collapses; fall back to compact
 )
 
-
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
 	subtitleStyle = lipgloss.NewStyle().Faint(true)
@@ -47,7 +46,6 @@ func (m Model) errFooter() string {
 	}
 	return errorStyle.Render("error: " + m.lastError.Error())
 }
-
 
 func progressBar(pos, dur time.Duration, width int) string {
 	if dur <= 0 {
@@ -121,7 +119,6 @@ func renderPermissionDenied() string {
 	keybinds := footerStyle.Render(" q: quit")
 	return card + "\n" + keybinds
 }
-
 
 // trackKey returns a stable identity for a track for cache-keying purposes.
 // Returns "" for an all-zero Track so cache lookups against "no track loaded"
