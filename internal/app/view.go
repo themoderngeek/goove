@@ -33,10 +33,6 @@ func (m Model) View() string {
 	if m.permissionDenied {
 		return renderPermissionDenied()
 	}
-	// Modals (Phase 1): still render on top of everything when open.
-	if m.picker != nil {
-		return renderPicker(m.picker)
-	}
 	if m.width > 0 && m.width < compactThreshold {
 		return renderCompact(m)
 	}

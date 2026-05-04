@@ -33,16 +33,6 @@ type artState struct {
 	fetching bool
 }
 
-// pickerState is the modal device-picker overlay state.
-// nil on Model means "picker not open"; non-nil means "picker is showing."
-// While loading is true, only esc/q are honoured (cancel cancels both fetch and set).
-type pickerState struct {
-	loading bool
-	devices []domain.AudioDevice
-	cursor  int
-	err     error
-}
-
 // playlistsPanel is the state of the Playlists panel (left, top of stack).
 // items is the cached playlist list; cursor is the highlighted row;
 // tracksByName caches per-playlist tracks for live-preview hits.
@@ -123,7 +113,6 @@ type Model struct {
 
 	art      artState
 	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
-	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
 
 	// New layout state (Phase 1).
 	focusZ    focus

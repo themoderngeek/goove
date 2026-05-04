@@ -66,18 +66,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		// Existing picker-modal write (Phase 4 still keeps the modal alive):
-		if m.picker != nil {
-			m.picker.loading = false
-			m.picker.err = msg.err
-			m.picker.devices = msg.devices
-			for i, d := range msg.devices {
-				if d.Selected {
-					m.picker.cursor = i
-					break
-				}
-			}
-		}
 		return m, nil
 
 	case deviceSetMsg:
@@ -85,17 +73,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.output.loading = false
 		if msg.err != nil {
 			m.output.err = msg.err
-			// Existing picker-modal write (error path):
-			if m.picker != nil {
-				m.picker.loading = false
-				m.picker.err = msg.err
-			}
 			return m, nil
 		}
-		// Success: clear any prior error, close the picker modal (if open),
-		// and refresh device list to pick up the new Selected flag.
+		// Success: clear any prior error and refresh device list to pick up
+		// the new Selected flag.
 		m.output.err = nil
-		m.picker = nil
 		return m, fetchDevices(m.client)
 
 	case playlistsMsg:
@@ -218,29 +200,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.picker != nil {
-		return m.handlePickerKey(msg)
-	}
-
 	// Phase 2: focus-routed panel handlers run before globals.
-	if m.picker == nil {
-		switch m.focusZ {
-		case focusPlaylists:
-			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
-				return mm, cmd
-			}
-		case focusSearch:
-			if mm, cmd, handled := handleSearchPanelKey(m, msg); handled {
-				return mm, cmd
-			}
-		case focusOutput:
-			if mm, cmd, handled := handleOutputKey(m, msg); handled {
-				return mm, cmd
-			}
-		case focusMain:
-			if mm, cmd, handled := handleMainKey(m, msg); handled {
-				return mm, cmd
-			}
+	switch m.focusZ {
+	case focusPlaylists:
+		if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
+			return mm, cmd
+		}
+	case focusSearch:
+		if mm, cmd, handled := handleSearchPanelKey(m, msg); handled {
+			return mm, cmd
+		}
+	case focusOutput:
+		if mm, cmd, handled := handleOutputKey(m, msg); handled {
+			return mm, cmd
+		}
+	case focusMain:
+		if mm, cmd, handled := handleMainKey(m, msg); handled {
+			return mm, cmd
 		}
 	}
 
@@ -291,14 +267,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.applyVolumeDelta(-5)
 
 	case "o":
-		// Open the device picker. Suppressed in Disconnected — the AirPlay
-		// device list requires Music to be running. permissionDenied is also
-		// suppressed (handled at the top of this function).
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		m.picker = &pickerState{loading: true}
-		return m, fetchDevices(m.client)
+		m.focusZ = focusOutput
+		mm, cmd := onFocusOutput(m)
+		return mm, cmd
 
 	case "/":
 		if _, ok := m.state.(Disconnected); ok {
@@ -307,51 +281,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.focusZ = focusSearch
 		m.search2.inputMode = true
 		return m, nil
-	}
-	return m, nil
-}
-
-// handlePickerKey routes keystrokes when the picker overlay is open.
-// Transport keys are suppressed by virtue of routing through this function
-// instead of the normal switch.
-func (m Model) handlePickerKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.picker.loading {
-		// Only esc/q work while loading.
-		if msg.String() == "esc" || msg.String() == "q" {
-			m.picker = nil
-			return m, nil
-		}
-		return m, nil
-	}
-
-	switch msg.String() {
-	case "esc", "q":
-		m.picker = nil
-		return m, nil
-
-	case "up", "k":
-		if m.picker.cursor > 0 {
-			m.picker.cursor--
-		}
-		return m, nil
-
-	case "down", "j":
-		if m.picker.cursor < len(m.picker.devices)-1 {
-			m.picker.cursor++
-		}
-		return m, nil
-
-	case "enter":
-		if len(m.picker.devices) == 0 {
-			return m, nil
-		}
-		target := m.picker.devices[m.picker.cursor].Name
-		m.picker.loading = true
-		client := m.client
-		return m, func() tea.Msg {
-			err := client.SetAirPlayDevice(context.Background(), target)
-			return deviceSetMsg{err: err}
-		}
 	}
 	return m, nil
 }

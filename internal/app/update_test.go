@@ -481,326 +481,38 @@ func TestArtworkMsgWithErrorClearsFetchingButLeavesOutputEmpty(t *testing.T) {
 	}
 }
 
-func TestOKeyOpensPickerInConnected(t *testing.T) {
+func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 	c := fake.New()
 	c.Launch(context.Background())
-	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
-	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
+	tmp, _ := m.Update(statusMsg{now: np})
+	m = tmp.(Model)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-
-	if got.picker == nil {
-		t.Fatal("expected picker to be open after 'o' keypress")
-	}
-	if !got.picker.loading {
-		t.Error("expected picker.loading = true while fetch is in flight")
+	if got.focusZ != focusOutput {
+		t.Errorf("focusZ = %v; want focusOutput", got.focusZ)
 	}
 	if cmd == nil {
-		t.Error("expected a fetchDevices Cmd")
+		t.Fatal("expected fetchDevices Cmd")
 	}
-}
-
-func TestOKeyOpensPickerInIdle(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.state = Idle{Volume: 50}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker == nil {
-		t.Fatal("expected picker to be open in Idle state")
+	if _, ok := cmd().(devicesMsg); !ok {
+		t.Fatalf("cmd produced %T; want devicesMsg", cmd())
 	}
 }
 
 func TestOKeyIsNoOpInDisconnected(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// Default state is Disconnected{}.
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil (suppressed in Disconnected)", updated.(Model).picker)
-	}
-}
-
-func TestOKeyIsNoOpWhenPermissionDenied(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.permissionDenied = true
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil (suppressed when permissionDenied)", updated.(Model).picker)
-	}
-}
-
-func TestPickerArrowsNavigateCursor(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{
-			{Name: "A"}, {Name: "B"}, {Name: "C"},
-		},
-		cursor: 0,
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updated.(Model).picker.cursor != 1 {
-		t.Errorf("cursor after down = %d; want 1", updated.(Model).picker.cursor)
-	}
-
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor after up = %d; want 0", updated.(Model).picker.cursor)
-	}
-}
-
-func TestPickerArrowsClampAtBoundaries(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-	// Up at top — stays at 0
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor at top after up = %d; want 0", updated.(Model).picker.cursor)
-	}
-	// Down past bottom — clamps to last
-	m = updated.(Model)
-	for range 5 {
-		tmp, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		m = tmp.(Model)
-	}
-	if m.picker.cursor != 1 {
-		t.Errorf("cursor after spam-down = %d; want 1 (clamped)", m.picker.cursor)
-	}
-}
-
-func TestPickerVIKeysAlsoNavigate(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if updated.(Model).picker.cursor != 1 {
-		t.Errorf("cursor after j = %d; want 1", updated.(Model).picker.cursor)
-	}
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor after k = %d; want 0", updated.(Model).picker.cursor)
-	}
-}
-
-func TestPickerEscClosesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after esc", updated.(Model).picker)
-	}
-}
-
-func TestPickerQAlsoCloses(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after q", updated.(Model).picker)
-	}
-}
-
-func TestPickerEnterTriggersSetAirPlayDevice(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetDevices([]domain.AudioDevice{
-		{Name: "Computer", Selected: true},
-		{Name: "Kitchen Sonos"},
-	})
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{
-			{Name: "Computer", Selected: true},
-			{Name: "Kitchen Sonos"},
-		},
-		cursor: 1, // pointing at Kitchen Sonos
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newTestModel() // starts in Disconnected
+	before := m.focusZ
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-
-	if !got.picker.loading {
-		t.Error("expected loading=true after enter")
+	if got.focusZ != before {
+		t.Errorf("focusZ changed to %v; want no change (suppressed in Disconnected)", got.focusZ)
 	}
-	if cmd == nil {
-		t.Fatal("expected a Cmd from enter")
-	}
-	out := cmd()
-	dsm, ok := out.(deviceSetMsg)
-	if !ok {
-		t.Fatalf("cmd returned %T; want deviceSetMsg", out)
-	}
-	if dsm.err != nil {
-		t.Errorf("deviceSetMsg.err = %v; want nil", dsm.err)
-	}
-}
-
-func TestPickerWhileLoadingOnlyEscWorks(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-
-	// Down should be ignored.
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor moved while loading = %d; want 0", updated.(Model).picker.cursor)
-	}
-	// Esc still closes.
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updated.(Model).picker != nil {
-		t.Error("esc did not close picker while loading")
-	}
-}
-
-func TestTransportKeysSuppressedWhilePickerOpen(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if c.PlayPauseCalls != 0 {
-		t.Errorf("PlayPauseCalls = %d; want 0 (suppressed by picker)", c.PlayPauseCalls)
-	}
-	// Picker still open after the suppressed key.
-	if updated.(Model).picker == nil {
-		t.Error("picker closed unexpectedly")
-	}
-}
-
-func TestDevicesMsgPopulatesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{loading: true}
-
-	devices := []domain.AudioDevice{
-		{Name: "Computer", Selected: false},
-		{Name: "Kitchen Sonos", Selected: true},
-	}
-	updated, _ := m.Update(devicesMsg{devices: devices, err: nil})
-	got := updated.(Model)
-
-	if got.picker.loading {
-		t.Error("loading still true after devicesMsg")
-	}
-	if len(got.picker.devices) != 2 {
-		t.Errorf("len = %d; want 2", len(got.picker.devices))
-	}
-	// Cursor should land on the currently-selected device.
-	if got.picker.cursor != 1 {
-		t.Errorf("cursor = %d; want 1 (Kitchen Sonos has Selected=true)", got.picker.cursor)
-	}
-}
-
-func TestDevicesMsgErrorShownInPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{loading: true}
-
-	updated, _ := m.Update(devicesMsg{err: music.ErrUnavailable})
-	got := updated.(Model)
-
-	if got.picker.loading {
-		t.Error("loading still true after error devicesMsg")
-	}
-	if got.picker.err == nil {
-		t.Error("expected picker.err set")
-	}
-}
-
-func TestDevicesMsgPopulatesOutputPanelWhenPickerClosed(t *testing.T) {
-	m := newTestModel()
-	updated, _ := m.Update(devicesMsg{devices: []domain.AudioDevice{
-		{Name: "MacBook", Selected: true}, {Name: "Sonos"},
-	}})
-	got := updated.(Model)
-	if got.picker != nil {
-		t.Errorf("picker should remain nil; got %+v", got.picker)
-	}
-	if len(got.output.devices) != 2 {
-		t.Errorf("output.devices = %d; want 2 (panel populates even with no modal open)", len(got.output.devices))
-	}
-	if got.output.cursor != 0 {
-		t.Errorf("output.cursor = %d; want 0 (lands on selected)", got.output.cursor)
-	}
-}
-
-func TestDeviceSetMsgSuccessClosesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}},
-	}
-
-	updated, _ := m.Update(deviceSetMsg{err: nil})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after successful set", updated.(Model).picker)
-	}
-}
-
-func TestDeviceSetMsgErrorKeepsPickerOpen(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  1,
-	}
-
-	updated, _ := m.Update(deviceSetMsg{err: music.ErrDeviceNotFound})
-	got := updated.(Model)
-
-	if got.picker == nil {
-		t.Fatal("picker closed on error; want it to stay open")
-	}
-	if got.picker.loading {
-		t.Error("loading still true after error deviceSetMsg")
-	}
-	if got.picker.err == nil {
-		t.Error("expected picker.err set")
-	}
-	if got.picker.cursor != 1 {
-		t.Errorf("cursor changed unexpectedly to %d", got.picker.cursor)
-	}
-}
-
-func TestDeviceSetMsgIgnoredWhenPickerClosed(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// picker is nil — user esc'd before set landed.
-
-	updated, _ := m.Update(deviceSetMsg{err: nil})
-	if updated.(Model).picker != nil {
-		t.Error("picker should remain nil")
+	if cmd != nil {
+		t.Errorf("expected no Cmd in Disconnected, got %T", cmd)
 	}
 }
 
@@ -840,16 +552,6 @@ func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 		if got.focusZ != tt.want {
 			t.Errorf("focusZ after '%c' = %v; want %v", tt.key, got.focusZ, tt.want)
 		}
-	}
-}
-
-func TestFocusKeysSuppressedWhilePickerOpen(t *testing.T) {
-	m := newTestModel()
-	m.picker = &pickerState{}
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	got := updated.(Model)
-	if got.focusZ != focusPlaylists {
-		t.Errorf("focusZ after Tab while picker open = %v; want focusPlaylists (no change)", got.focusZ)
 	}
 }
 
