@@ -65,7 +65,8 @@ type playlistTracksMsg struct {
 
 // playPlaylistMsg carries the result of a PlayPlaylist invocation. The
 // existing 1Hz status tick will surface the new now-playing in its next poll;
-// this message is just for surfacing errors in the browser.
+// this message exists only so that errors can be funnelled into the
+// error footer.
 type playPlaylistMsg struct {
 	err error
 }

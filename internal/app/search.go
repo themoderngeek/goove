@@ -79,9 +79,9 @@ func playSearchSelection(client music.Client, seq uint64, persistentID string) t
 }
 
 // handleSearchKey routes keystrokes when the search modal is open. Transport
-// keys do NOT fall through (unlike the browser); the modal is fully captive
-// the way the picker is. Refresh is bound to ctrl+R so plain rune keys
-// (including 'r') always append to the query.
+// keys do NOT fall through; the modal is fully captive the way the picker
+// is. Refresh is bound to ctrl+R so plain rune keys (including 'r') always
+// append to the query.
 func (m Model) handleSearchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:
