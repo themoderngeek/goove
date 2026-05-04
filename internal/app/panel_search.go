@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/themoderngeek/goove/internal/music"
 )
 
 func renderSearchPanel(m Model, width, height int) string {
@@ -69,8 +72,21 @@ func handleSearchPanelKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 		m.search2.seq++
 		return m, nil, true
 	case tea.KeyEnter:
-		// Phase 3 task 20 wires this.
-		return m, nil, true
+		if !m.search2.inputMode || m.search2.query == "" {
+			return m, nil, true
+		}
+		m.search2.seq++
+		m.search2.loading = true
+		m.search2.err = nil
+		return m, fireSearchPanel(m.client, m.search2.seq, m.search2.query), true
 	}
 	return m, nil, false
+}
+
+// fireSearchPanel dispatches a SearchTracks call. Used by the ⏎ handler.
+func fireSearchPanel(c music.Client, seq uint64, query string) tea.Cmd {
+	return func() tea.Msg {
+		res, err := c.SearchTracks(context.Background(), query)
+		return searchPanelResultsMsg{seq: seq, query: query, result: res, err: err}
+	}
 }

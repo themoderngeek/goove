@@ -1,9 +1,14 @@
 package app
 
 import (
+	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/themoderngeek/goove/internal/domain"
+	"github.com/themoderngeek/goove/internal/music"
+	"github.com/themoderngeek/goove/internal/music/fake"
 )
 
 func TestSearchPanelTypingEntersInputModeAndAppendsQuery(t *testing.T) {
@@ -84,5 +89,65 @@ func TestSearchPanelNumberKeysStillJumpFocusInInputMode(t *testing.T) {
 	// Query unchanged.
 	if got.search2.query != "le" {
 		t.Errorf("query = %q; want %q (1 should not append)", got.search2.query, "le")
+	}
+}
+
+func TestSearchPanelEnterFiresSearch(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{{Title: "Stairway", Artist: "Led Zeppelin", PersistentID: "p1"}})
+	m := New(c, nil)
+	m.focusZ = focusSearch
+	m.search2.inputMode = true
+	m.search2.query = "stair"
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected fireSearchPanel Cmd")
+	}
+	out := cmd()
+	res, ok := out.(searchPanelResultsMsg)
+	if !ok {
+		t.Fatalf("cmd produced %T; want searchPanelResultsMsg", out)
+	}
+	if res.query != "stair" {
+		t.Errorf("query = %q", res.query)
+	}
+}
+
+func TestSearchPanelResultsMsgPopulatesMainPane(t *testing.T) {
+	m := newTestModel()
+	m.search2.seq = 5
+	m.search2.query = "stair"
+	tracks := []domain.Track{{Title: "Stairway", Artist: "Led Zeppelin"}}
+	updated, _ := m.Update(searchPanelResultsMsg{seq: 5, query: "stair", result: music.SearchResult{Tracks: tracks, Total: 1}})
+	got := updated.(Model)
+	if got.main.mode != mainPaneSearchResults {
+		t.Errorf("main.mode = %v; want mainPaneSearchResults", got.main.mode)
+	}
+	if len(got.main.searchResults) != 1 {
+		t.Errorf("searchResults = %d; want 1", len(got.main.searchResults))
+	}
+	if got.focusZ != focusMain {
+		t.Errorf("focusZ = %v; want focusMain", got.focusZ)
+	}
+}
+
+func TestSearchPanelStaleSeqDropped(t *testing.T) {
+	m := newTestModel()
+	m.search2.seq = 5
+	updated, _ := m.Update(searchPanelResultsMsg{seq: 4, query: "old"})
+	got := updated.(Model)
+	if got.main.mode == mainPaneSearchResults {
+		t.Error("stale seq should not have populated main pane")
+	}
+}
+
+func TestSearchPanelEnterEmptyQueryNoOp(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusSearch
+	m.search2.inputMode = true
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("expected no Cmd on empty query, got %T", cmd())
 	}
 }

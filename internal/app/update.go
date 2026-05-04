@@ -148,6 +148,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.search.cursor = 0
 		return m, nil
 
+	case searchPanelResultsMsg:
+		if msg.seq != m.search2.seq {
+			return m, nil // stale
+		}
+		m.search2.loading = false
+		m.search2.inputMode = false
+		m.search2.lastQuery = msg.query
+		m.search2.total = msg.result.Total
+		m.search2.err = msg.err
+		if msg.err != nil {
+			return m, nil
+		}
+		// Land results in main pane.
+		m.main.mode = mainPaneSearchResults
+		m.main.searchResults = domain.RankSearchResults(msg.result.Tracks, msg.query)
+		m.main.cursor = 0
+		// Focus jumps to main.
+		m.focusZ = focusMain
+		return m, nil
+
 	case searchPlayedMsg:
 		if m.search != nil {
 			if msg.seq != m.search.seq {

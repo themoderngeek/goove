@@ -103,3 +103,12 @@ type playlistTracksDebounceMsg struct {
 	seq  uint64
 	name string
 }
+
+// searchPanelResultsMsg is the panel flow's analogue of searchResultsMsg.
+// Carries seq + query for stale-result rejection.
+type searchPanelResultsMsg struct {
+	seq    uint64
+	query  string
+	result music.SearchResult
+	err    error
+}
