@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -110,5 +111,19 @@ func TestMainTracksEnterIsNoOpWhenEmpty(t *testing.T) {
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd with empty selection, got %T", cmd())
+	}
+}
+
+func TestMainPaneShowsTrackFetchErrorForSelectedPlaylist(t *testing.T) {
+	m := newTestModel()
+	m.main.mode = mainPaneTracks
+	m.main.selectedPlaylist = "B"
+	m.playlists.trackErrByName["B"] = errors.New("signal: killed")
+	got := renderMainPanel(m, 60, 30)
+	if !strings.Contains(got, "couldn't load tracks") {
+		t.Errorf("main pane did not show track-fetch error: %q", got)
+	}
+	if !strings.Contains(got, "signal: killed") {
+		t.Errorf("main pane did not include underlying error: %q", got)
 	}
 }

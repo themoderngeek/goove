@@ -63,13 +63,14 @@ type searchState struct {
 // items is the cached playlist list; cursor is the highlighted row;
 // tracksByName caches per-playlist tracks for live-preview hits.
 type playlistsPanel struct {
-	items        []domain.Playlist
-	cursor       int
-	loading      bool
-	err          error
-	tracksByName map[string][]domain.Track
-	fetchingFor  map[string]bool
-	seq          uint64 // bumped on every cursor change; debounce drops stale ticks
+	items          []domain.Playlist
+	cursor         int
+	loading        bool
+	err            error // set ONLY by fetchPlaylists failures (the list itself); track-fetch errors live in trackErrByName
+	tracksByName   map[string][]domain.Track
+	fetchingFor    map[string]bool
+	trackErrByName map[string]error // per-playlist track-fetch errors; surfaced in the main pane
+	seq            uint64           // bumped on every cursor change; debounce drops stale ticks
 }
 
 // searchPanel is the state of the Search panel (left, middle of stack).
@@ -159,8 +160,9 @@ func New(client music.Client, renderer art.Renderer) Model {
 		state:      Disconnected{},
 		lastVolume: 50,
 		playlists: playlistsPanel{
-			tracksByName: make(map[string][]domain.Track),
-			fetchingFor:  make(map[string]bool),
+			tracksByName:   make(map[string][]domain.Track),
+			fetchingFor:    make(map[string]bool),
+			trackErrByName: make(map[string]error),
 		},
 	}
 }

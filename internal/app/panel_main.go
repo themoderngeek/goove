@@ -37,6 +37,8 @@ func renderMainTracks(m Model, width, height int) string {
 	switch {
 	case !cached && m.playlists.fetchingFor[m.main.selectedPlaylist]:
 		body = subtitleStyle.Render("loading…")
+	case m.playlists.trackErrByName[m.main.selectedPlaylist] != nil:
+		body = errorStyle.Render("couldn't load tracks: " + m.playlists.trackErrByName[m.main.selectedPlaylist].Error())
 	case !cached:
 		body = subtitleStyle.Render("(no tracks loaded)")
 	case len(tracks) == 0:

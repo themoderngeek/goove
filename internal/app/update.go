@@ -107,14 +107,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.playlists.fetchingFor[msg.name] {
 			return m, nil
 		}
+		// Clear any prior error from a previous attempt — the user is retrying
+		// by revisiting this playlist. Also avoids "loading… (with stale error
+		// message above)" double-render in the main pane during the new fetch.
+		delete(m.playlists.trackErrByName, msg.name)
 		m.playlists.fetchingFor[msg.name] = true
 		return m, fetchPlaylistTracks(m.client, msg.name)
 
 	case playlistTracksMsg:
 		delete(m.playlists.fetchingFor, msg.name)
 		if msg.err != nil {
-			m.playlists.err = msg.err
+			// Per-playlist error — surfaced in the main pane next to the playlist
+			// it belongs to. Crucially does NOT write m.playlists.err, which would
+			// clobber the entire Playlists panel display.
+			m.playlists.trackErrByName[msg.name] = msg.err
 		} else {
+			delete(m.playlists.trackErrByName, msg.name)
 			m.playlists.tracksByName[msg.name] = msg.tracks
 		}
 		return m, nil

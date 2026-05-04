@@ -258,3 +258,47 @@ func TestPlaylistTracksDebounceMsgNoOpWhenCached(t *testing.T) {
 		t.Errorf("fetchingFor[B] should not be set when cache hit")
 	}
 }
+
+func TestPlaylistTracksMsgErrorWritesPerNameNotPanelErr(t *testing.T) {
+	m := newTestModel()
+	m.playlists.fetchingFor["B"] = true
+	updated, _ := m.Update(playlistTracksMsg{name: "B", err: errors.New("boom")})
+	got := updated.(Model)
+	if got.playlists.err != nil {
+		t.Errorf("playlists.err must NOT be set by track-fetch errors, got %v", got.playlists.err)
+	}
+	if got.playlists.trackErrByName["B"] == nil {
+		t.Error("trackErrByName[B] must be set on track-fetch error")
+	}
+}
+
+func TestPlaylistTracksMsgSuccessClearsPriorTrackErr(t *testing.T) {
+	m := newTestModel()
+	m.playlists.trackErrByName["B"] = errors.New("previous failure")
+	tracks := []domain.Track{{Title: "t1"}}
+	updated, _ := m.Update(playlistTracksMsg{name: "B", tracks: tracks})
+	got := updated.(Model)
+	if got.playlists.trackErrByName["B"] != nil {
+		t.Error("trackErrByName[B] must be cleared on success")
+	}
+	if len(got.playlists.tracksByName["B"]) != 1 {
+		t.Errorf("tracks not populated, got %v", got.playlists.tracksByName["B"])
+	}
+}
+
+func TestPlaylistTracksDebounceMsgClearsPriorErrorOnRetry(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "B"}})
+	m := New(c, nil)
+	m.playlists.seq = 5
+	m.playlists.trackErrByName["B"] = errors.New("previous failure")
+	updated, _ := m.Update(playlistTracksDebounceMsg{seq: 5, name: "B"})
+	got := updated.(Model)
+	if _, has := got.playlists.trackErrByName["B"]; has {
+		t.Error("trackErrByName[B] must be cleared when retry starts")
+	}
+	if !got.playlists.fetchingFor["B"] {
+		t.Error("fetchingFor[B] must be set when retry fires")
+	}
+}
