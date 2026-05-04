@@ -88,6 +88,55 @@ type browserState struct {
 	err            error
 }
 
+// playlistsPanel is the state of the Playlists panel (left, top of stack).
+// items is the cached playlist list; cursor is the highlighted row;
+// tracksByName caches per-playlist tracks for live-preview hits.
+type playlistsPanel struct {
+	items        []domain.Playlist
+	cursor       int
+	loading      bool
+	err          error
+	tracksByName map[string][]domain.Track
+	fetchingFor  map[string]bool
+}
+
+// searchPanel is the state of the Search panel (left, middle of stack).
+// inputMode true means typing routes into the query; outside input mode the
+// panel is "idle" and shows a muted prompt.
+type searchPanel struct {
+	inputMode bool
+	query     string
+	seq       uint64
+	loading   bool
+	lastQuery string
+	total     int
+	err       error
+}
+
+// outputPanel is the state of the Output panel (left, bottom of stack).
+type outputPanel struct {
+	devices []domain.AudioDevice
+	cursor  int
+	loading bool
+	err     error
+}
+
+// mainPaneMode is which "view" the main pane is showing.
+type mainPaneMode int
+
+const (
+	mainPaneTracks mainPaneMode = iota
+	mainPaneSearchResults
+)
+
+// mainPanel is the state of the right-hand main pane.
+type mainPanel struct {
+	mode             mainPaneMode
+	cursor           int
+	selectedPlaylist string
+	searchResults    []domain.Track
+}
+
 // Model holds the entire goove TUI state.
 type Model struct {
 	client music.Client
@@ -110,6 +159,13 @@ type Model struct {
 	mode     viewMode
 	browser  *browserState
 	search   *searchState // nil ⇒ search modal not open
+
+	// New layout state (Phase 1).
+	focusZ    focus
+	playlists playlistsPanel
+	search2   searchPanel // temp name; renamed to `search` in Phase 6 after the modal type is retired
+	output    outputPanel
+	main      mainPanel
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
@@ -121,6 +177,10 @@ func New(client music.Client, renderer art.Renderer) Model {
 		renderer:   renderer,
 		state:      Disconnected{},
 		lastVolume: 50,
+		playlists: playlistsPanel{
+			tracksByName: make(map[string][]domain.Track),
+			fetchingFor:  make(map[string]bool),
+		},
 	}
 }
 
