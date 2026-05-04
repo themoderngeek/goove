@@ -15,6 +15,7 @@ func TestFocusingOutputFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
 	c.Launch(context.Background())
 	m := New(c, nil)
+	m.output.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	m.focus = focusPlaylists
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
 	got := updated.(Model)
@@ -163,5 +164,13 @@ func TestDevicesMsgErrorRoutesToLastErrorNotPanel(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("expected clearErrorAfter Cmd")
+	}
+}
+
+func TestNewInitialisesOutputPanelLoading(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	if !m.output.loading {
+		t.Error("expected output.loading = true after New so first frame shows 'loading…' instead of an empty panel")
 	}
 }

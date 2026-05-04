@@ -98,6 +98,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.playlists.cursor >= len(msg.playlists) {
 			m.playlists.cursor = 0
 		}
+		if len(m.playlists.items) > 0 && m.main.selectedPlaylist == "" {
+			name := m.playlists.items[0].Name
+			m.main.selectedPlaylist = name
+			return m, fetchPlaylistTracks(m.client, name)
+		}
 		return m, nil
 
 	case playlistTracksDebounceMsg:
