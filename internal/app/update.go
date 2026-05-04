@@ -69,15 +69,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case deviceSetMsg:
-		// Phase 4: panel flow.
 		m.output.loading = false
 		if msg.err != nil {
-			m.output.err = msg.err
-			return m, nil
+			// Per-action error — transient, belongs in the bottom error strip
+			// (auto-dissolves) so the user can see the device list to retry.
+			// Mirrors the Phase 2 fix for playlistTracksMsg errors.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
 		}
-		// Success: clear any prior error and refresh device list to pick up
-		// the new Selected flag.
-		m.output.err = nil
 		return m, fetchDevices(m.client)
 
 	case playlistsMsg:

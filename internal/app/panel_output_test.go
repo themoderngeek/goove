@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -113,5 +114,41 @@ func TestOutputEnterIsNoOpWhenEmpty(t *testing.T) {
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd with empty device list, got %T", cmd())
+	}
+}
+
+func TestDeviceSetMsgErrorRoutesToLastErrorNotPanel(t *testing.T) {
+	m := newTestModel()
+	m.output.loading = true
+	updated, cmd := m.Update(deviceSetMsg{err: errors.New("device gone")})
+	got := updated.(Model)
+	if got.output.err != nil {
+		t.Errorf("output.err must NOT be set by device-switch errors, got %v", got.output.err)
+	}
+	if got.lastError == nil {
+		t.Error("lastError must be set on device-switch error")
+	}
+	if got.output.loading {
+		t.Error("output.loading must be cleared")
+	}
+	if cmd == nil {
+		t.Fatal("expected clearErrorAfter Cmd")
+	}
+}
+
+func TestDeviceSetMsgSuccessRefreshesDevices(t *testing.T) {
+	m := newTestModel()
+	m.output.loading = true
+	updated, cmd := m.Update(deviceSetMsg{})
+	got := updated.(Model)
+	if got.output.loading {
+		t.Error("output.loading must be cleared on success")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchDevices Cmd on success")
+	}
+	out := cmd()
+	if _, ok := out.(devicesMsg); !ok {
+		t.Fatalf("cmd produced %T; want devicesMsg", out)
 	}
 }
