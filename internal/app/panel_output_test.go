@@ -63,3 +63,55 @@ func TestOutputCursorMovesWithJK(t *testing.T) {
 		t.Errorf("cursor = %d; want 1", got.output.cursor)
 	}
 }
+
+func TestOutputEnterFiresSetAirPlayDevice(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetDevices([]domain.AudioDevice{
+		{Name: "MacBook", Selected: true},
+		{Name: "Sonos"},
+	})
+	m := New(c, nil)
+	m.focusZ = focusOutput
+	m.output.devices = []domain.AudioDevice{
+		{Name: "MacBook", Selected: true},
+		{Name: "Sonos"},
+	}
+	m.output.cursor = 1 // Sonos
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected SetAirPlayDevice Cmd on enter")
+	}
+	got := updated.(Model)
+	if !got.output.loading {
+		t.Error("expected output.loading = true while the set-device call is in flight")
+	}
+	out := cmd()
+	if _, ok := out.(deviceSetMsg); !ok {
+		t.Fatalf("cmd produced %T; want deviceSetMsg", out)
+	}
+	// Verify the fake actually received the SetAirPlayDevice("Sonos") call:
+	// after the cmd runs, Sonos should be Selected=true in the fake's state.
+	devices, err := c.AirPlayDevices(context.Background())
+	if err != nil {
+		t.Fatalf("AirPlayDevices: %v", err)
+	}
+	var sonosSelected bool
+	for _, d := range devices {
+		if d.Name == "Sonos" && d.Selected {
+			sonosSelected = true
+		}
+	}
+	if !sonosSelected {
+		t.Error("SetAirPlayDevice was not called for Sonos (Sonos.Selected still false)")
+	}
+}
+
+func TestOutputEnterIsNoOpWhenEmpty(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusOutput
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("expected no Cmd with empty device list, got %T", cmd())
+	}
+}

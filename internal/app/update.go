@@ -92,8 +92,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		// Success: close the picker modal (if open) and refresh device list
-		// to pick up the new Selected flag.
+		// Success: clear any prior error, close the picker modal (if open),
+		// and refresh device list to pick up the new Selected flag.
+		m.output.err = nil
 		m.picker = nil
 		return m, fetchDevices(m.client)
 

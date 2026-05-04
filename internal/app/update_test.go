@@ -736,14 +736,20 @@ func TestDevicesMsgErrorShownInPicker(t *testing.T) {
 	}
 }
 
-func TestDevicesMsgIgnoredWhenPickerClosed(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// picker is nil — user esc'd before fetch landed.
-
-	updated, _ := m.Update(devicesMsg{devices: []domain.AudioDevice{{Name: "A"}}})
-	if updated.(Model).picker != nil {
-		t.Error("picker should remain nil; stale devicesMsg should be discarded")
+func TestDevicesMsgPopulatesOutputPanelWhenPickerClosed(t *testing.T) {
+	m := newTestModel()
+	updated, _ := m.Update(devicesMsg{devices: []domain.AudioDevice{
+		{Name: "MacBook", Selected: true}, {Name: "Sonos"},
+	}})
+	got := updated.(Model)
+	if got.picker != nil {
+		t.Errorf("picker should remain nil; got %+v", got.picker)
+	}
+	if len(got.output.devices) != 2 {
+		t.Errorf("output.devices = %d; want 2 (panel populates even with no modal open)", len(got.output.devices))
+	}
+	if got.output.cursor != 0 {
+		t.Errorf("output.cursor = %d; want 0 (lands on selected)", got.output.cursor)
 	}
 }
 
