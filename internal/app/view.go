@@ -34,9 +34,6 @@ func (m Model) View() string {
 		return renderPermissionDenied()
 	}
 	// Modals (Phase 1): still render on top of everything when open.
-	if m.search != nil {
-		return renderSearch(m.search)
-	}
 	if m.picker != nil {
 		return renderPicker(m.picker)
 	}

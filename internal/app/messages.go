@@ -71,27 +71,12 @@ type playPlaylistMsg struct {
 	err error
 }
 
-// searchDebounceMsg fires 250ms after the last keystroke in the search modal.
-// seq is the searchState.seq the tick was scheduled under — handlers drop
-// the message if it doesn't match the current seq (stale).
-type searchDebounceMsg struct {
-	seq uint64
-}
-
-// searchResultsMsg carries the result of a SearchTracks call. seq + query
-// guard against a result arriving for a query the user has already moved
-// on from.
-type searchResultsMsg struct {
-	seq    uint64
-	query  string
-	result music.SearchResult
-	err    error
-}
-
-// searchPlayedMsg carries the result of a PlayTrack call from inside search.
-// On error, the modal stays open and shows the error footer.
+// searchPlayedMsg carries the result of a PlayTrack call (used when ⏎ is
+// pressed on a search result in the main pane). On error, the bottom error
+// footer surfaces it; on success, the next status tick reflects the new
+// now-playing.
 type searchPlayedMsg struct {
-	seq uint64
+	seq uint64 // unused in the panel flow; kept for future symmetry
 	err error
 }
 

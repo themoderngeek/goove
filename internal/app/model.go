@@ -43,22 +43,6 @@ type pickerState struct {
 	err     error
 }
 
-// searchState is the modal search overlay state.
-// nil on Model means "search not open"; non-nil means "search modal showing."
-//
-// seq is bumped on every keystroke; in-flight debounce ticks and result
-// messages carry the seq they were issued under, so stale ones are dropped
-// when seq advances. Same pattern as the artwork fetch's track-key guard.
-type searchState struct {
-	query   string
-	seq     uint64
-	loading bool
-	results []domain.Track
-	total   int
-	cursor  int
-	err     error
-}
-
 // playlistsPanel is the state of the Playlists panel (left, top of stack).
 // items is the cached playlist list; cursor is the highlighted row;
 // tracksByName caches per-playlist tracks for live-preview hits.
@@ -140,7 +124,6 @@ type Model struct {
 	art      artState
 	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
 	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
-	search   *searchState // nil ⇒ search modal not open
 
 	// New layout state (Phase 1).
 	focusZ    focus

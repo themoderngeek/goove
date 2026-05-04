@@ -847,16 +847,6 @@ func TestFocusKeysSuppressedWhilePickerOpen(t *testing.T) {
 	}
 }
 
-func TestFocusKeysSuppressedWhileSearchModalOpen(t *testing.T) {
-	m := newTestModel()
-	m.search = &searchState{}
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
-	got := updated.(Model)
-	if got.focusZ != focusPlaylists {
-		t.Errorf("focusZ after '2' while search modal open = %v; want focusPlaylists (no change)", got.focusZ)
-	}
-}
-
 func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
@@ -929,5 +919,33 @@ func TestPlaylistsMsgClampsCursorWhenResultShorter(t *testing.T) {
 	got := updated.(Model)
 	if got.playlists.cursor != 0 {
 		t.Errorf("cursor should clamp to 0 when result shorter than current cursor, got %d", got.playlists.cursor)
+	}
+}
+
+func TestSlashKeyFocusesSearchAndEntersInputMode(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
+	m := New(c, nil)
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
+	tmp, _ := m.Update(statusMsg{now: np})
+	m = tmp.(Model)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	got := updated.(Model)
+	if got.focusZ != focusSearch {
+		t.Errorf("focusZ = %v; want focusSearch", got.focusZ)
+	}
+	if !got.search2.inputMode {
+		t.Error("expected inputMode true")
+	}
+}
+
+func TestSlashIsNoOpInDisconnected(t *testing.T) {
+	m := newTestModel() // starts in Disconnected
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	got := updated.(Model)
+	if got.focusZ != focusPlaylists {
+		t.Errorf("focusZ = %v; want focusPlaylists (no change in Disconnected)", got.focusZ)
 	}
 }

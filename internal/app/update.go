@@ -127,27 +127,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case searchDebounceMsg:
-		if m.search == nil || msg.seq != m.search.seq {
-			return m, nil
-		}
-		if m.search.query == "" {
-			return m, nil
-		}
-		m.search.loading = true
-		return m, fetchSearch(m.client, m.search.seq, m.search.query)
-
-	case searchResultsMsg:
-		if m.search == nil || msg.seq != m.search.seq || msg.query != m.search.query {
-			return m, nil
-		}
-		m.search.loading = false
-		m.search.err = msg.err
-		m.search.results = domain.RankSearchResults(msg.result.Tracks, msg.query)
-		m.search.total = msg.result.Total
-		m.search.cursor = 0
-		return m, nil
-
 	case searchPanelResultsMsg:
 		if msg.seq != m.search2.seq {
 			return m, nil // stale
@@ -173,18 +152,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case searchPlayedMsg:
-		if m.search != nil {
-			if msg.seq != m.search.seq {
-				return m, nil
-			}
-			if msg.err != nil {
-				m.search.err = msg.err
-				return m, nil
-			}
-			m.search = nil
-			return m, nil
-		}
-		// Phase 2: result from the new main-pane enter.
 		if msg.err != nil {
 			m.lastError = msg.err
 			m.lastErrorAt = time.Now()
@@ -235,16 +202,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.search != nil {
-		return m.handleSearchKey(msg)
-	}
-
 	if m.picker != nil {
 		return m.handlePickerKey(msg)
 	}
 
 	// Phase 2: focus-routed panel handlers run before globals.
-	if m.search == nil && m.picker == nil {
+	if m.picker == nil {
 		switch m.focusZ {
 		case focusPlaylists:
 			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
@@ -321,12 +284,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		if m.picker != nil {
-			return m, nil
-		}
-		// seq starts at 1 — see Task 15 review notes: a stray playTrack
-		// result with the zero-value seq must not pass the modal's stale-seq gate.
-		m.search = &searchState{seq: 1}
+		m.focusZ = focusSearch
+		m.search2.inputMode = true
 		return m, nil
 	}
 	return m, nil
