@@ -226,6 +226,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
 				return mm, cmd
 			}
+		case focusSearch:
+			if mm, cmd, handled := handleSearchPanelKey(m, msg); handled {
+				return mm, cmd
+			}
 		case focusMain:
 			if mm, cmd, handled := handleMainKey(m, msg); handled {
 				return mm, cmd
