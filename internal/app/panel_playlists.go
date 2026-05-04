@@ -18,9 +18,6 @@ func renderPlaylistsBody(m Model, width, height int) string {
 	if m.playlists.loading && len(m.playlists.items) == 0 {
 		return subtitleStyle.Render("loading…")
 	}
-	if m.playlists.err != nil {
-		return errorStyle.Render("error: " + m.playlists.err.Error())
-	}
 	if len(m.playlists.items) == 0 {
 		return subtitleStyle.Render("(no playlists)")
 	}

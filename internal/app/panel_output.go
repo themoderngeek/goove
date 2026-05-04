@@ -17,9 +17,6 @@ func renderOutputBody(m Model, width, height int) string {
 	if m.output.loading && len(m.output.devices) == 0 {
 		return subtitleStyle.Render("loading…")
 	}
-	if m.output.err != nil {
-		return errorStyle.Render("error: " + m.output.err.Error())
-	}
 	if len(m.output.devices) == 0 {
 		return subtitleStyle.Render("(no devices)")
 	}

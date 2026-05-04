@@ -54,16 +54,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case devicesMsg:
-		// Phase 4: populate the persistent panel state.
 		m.output.loading = false
-		m.output.err = msg.err
-		if msg.err == nil {
-			m.output.devices = msg.devices
-			for i, d := range msg.devices {
-				if d.Selected {
-					m.output.cursor = i
-					break
-				}
+		if msg.err != nil {
+			// List-fetch failure — flash in the bottom strip (auto-dissolves)
+			// rather than clobbering the Output panel. User retries by
+			// re-focusing the panel.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
+		m.output.devices = msg.devices
+		for i, d := range msg.devices {
+			if d.Selected {
+				m.output.cursor = i
+				break
 			}
 		}
 		return m, nil
@@ -82,12 +86,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playlistsMsg:
 		m.playlists.loading = false
-		m.playlists.err = msg.err
-		if msg.err == nil {
-			m.playlists.items = msg.playlists
-			if m.playlists.cursor >= len(msg.playlists) {
-				m.playlists.cursor = 0
-			}
+		if msg.err != nil {
+			// List-fetch failure — flash in the bottom strip (auto-dissolves)
+			// rather than clobbering the Playlists panel. User retries by
+			// re-focusing the panel.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
+		m.playlists.items = msg.playlists
+		if m.playlists.cursor >= len(msg.playlists) {
+			m.playlists.cursor = 0
 		}
 		return m, nil
 

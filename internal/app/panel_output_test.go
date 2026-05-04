@@ -152,3 +152,22 @@ func TestDeviceSetMsgSuccessRefreshesDevices(t *testing.T) {
 		t.Fatalf("cmd produced %T; want devicesMsg", out)
 	}
 }
+
+func TestDevicesMsgErrorRoutesToLastErrorNotPanel(t *testing.T) {
+	m := newTestModel()
+	m.output.loading = true
+	updated, cmd := m.Update(devicesMsg{err: errors.New("backend killed")})
+	got := updated.(Model)
+	if got.output.err != nil {
+		t.Errorf("output.err must NOT be set; got %v", got.output.err)
+	}
+	if got.lastError == nil {
+		t.Error("expected lastError set on devices-fetch error")
+	}
+	if got.output.loading {
+		t.Error("output.loading must be cleared")
+	}
+	if cmd == nil {
+		t.Fatal("expected clearErrorAfter Cmd")
+	}
+}

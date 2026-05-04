@@ -606,16 +606,22 @@ func TestPlaylistsMsgPopulatesPanelStateOnSuccess(t *testing.T) {
 func TestPlaylistsMsgClearsLoadingOnError(t *testing.T) {
 	m := newTestModel()
 	m.playlists.loading = true
-	updated, _ := m.Update(playlistsMsg{err: errors.New("boom")})
+	updated, cmd := m.Update(playlistsMsg{err: errors.New("boom")})
 	got := updated.(Model)
 	if got.playlists.loading {
 		t.Error("loading should be cleared even on error")
 	}
-	if got.playlists.err == nil {
-		t.Error("expected err set")
+	if got.lastError == nil {
+		t.Error("expected lastError set on list-fetch error")
+	}
+	if got.playlists.err != nil {
+		t.Errorf("playlists.err must NOT be set; got %v", got.playlists.err)
 	}
 	if len(got.playlists.items) != 0 {
 		t.Errorf("items should not be populated on error, got %d", len(got.playlists.items))
+	}
+	if cmd == nil {
+		t.Fatal("expected clearErrorAfter Cmd")
 	}
 }
 
