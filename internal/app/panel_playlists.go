@@ -61,21 +61,23 @@ func onFocusPlaylists(m Model) (Model, tea.Cmd) {
 // globals.
 //
 // onPlaylistsCursorChanged is intentionally inside the cursor-move guards —
-// when the cursor is clamped at a boundary, no side effects fire. Task 12
-// adds a track-fetch Cmd here, and we don't want to refetch when the user
-// presses j repeatedly at the bottom of the list.
+// when the cursor is clamped at a boundary, no side effects fire. We don't
+// want to refetch when the user presses j repeatedly at the bottom of the
+// list.
 func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
 		if m.playlists.cursor > 0 {
 			m.playlists.cursor--
-			m = onPlaylistsCursorChanged(m)
+			mm, cmd := onPlaylistsCursorChanged(m)
+			return mm, cmd, true
 		}
 		return m, nil, true
 	case "down", "j":
 		if m.playlists.cursor < len(m.playlists.items)-1 {
 			m.playlists.cursor++
-			m = onPlaylistsCursorChanged(m)
+			mm, cmd := onPlaylistsCursorChanged(m)
+			return mm, cmd, true
 		}
 		return m, nil, true
 	}
@@ -91,17 +93,26 @@ func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 // they dismiss them (Esc in main pane, Task 21). selectedPlaylist still
 // updates so that Esc lands on the currently-cursor'd playlist's tracks.
 //
-// Track-fetch wiring is added in the next task.
-func onPlaylistsCursorChanged(m Model) Model {
+// On first preview of a playlist, fires fetchPlaylistTracks. Cached and
+// in-flight selections return nil Cmd.
+func onPlaylistsCursorChanged(m Model) (Model, tea.Cmd) {
 	if len(m.playlists.items) == 0 {
-		return m
+		return m, nil
 	}
 	name := m.playlists.items[m.playlists.cursor].Name
 	m.main.selectedPlaylist = name
 	if m.main.mode == mainPaneTracks {
 		m.main.cursor = 0
 	}
-	return m
+
+	if _, cached := m.playlists.tracksByName[name]; cached {
+		return m, nil
+	}
+	if m.playlists.fetchingFor[name] {
+		return m, nil
+	}
+	m.playlists.fetchingFor[name] = true
+	return m, fetchPlaylistTracks(m.client, name)
 }
 
 // panelBox is the shared lipgloss box used by every left-column panel.

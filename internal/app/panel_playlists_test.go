@@ -89,3 +89,58 @@ func TestPlaylistsCursorMovePreservesSearchResultsMode(t *testing.T) {
 		t.Errorf("main.selectedPlaylist = %q; want B (still updates so Esc lands here)", got.main.selectedPlaylist)
 	}
 }
+
+func TestPlaylistsCursorChangeFiresTrackFetchOnFirstSelection(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusPlaylists
+	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	got := updated.(Model)
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylistTracks Cmd on first selection of B")
+	}
+	if !got.playlists.fetchingFor["B"] {
+		t.Errorf("expected fetchingFor[B] = true")
+	}
+	out := cmd()
+	if _, ok := out.(playlistTracksMsg); !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksMsg", out)
+	}
+}
+
+func TestPlaylistsCursorChangeUsesCacheOnRevisit(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusPlaylists
+	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	m.playlists.tracksByName["B"] = []domain.Track{{Title: "t1"}}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if cmd != nil {
+		out := cmd()
+		t.Errorf("expected no Cmd on cached selection, got %T", out)
+	}
+}
+
+func TestPlaylistsCursorChangeNoDuplicateFetch(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusPlaylists
+	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	m.playlists.fetchingFor["B"] = true
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if cmd != nil {
+		t.Errorf("expected no Cmd while a fetch for B is in flight")
+	}
+}
+
+func TestPlaylistTracksMsgPopulatesCache(t *testing.T) {
+	m := newTestModel()
+	m.playlists.fetchingFor["B"] = true
+	tracks := []domain.Track{{Title: "t1"}, {Title: "t2"}}
+	updated, _ := m.Update(playlistTracksMsg{name: "B", tracks: tracks})
+	got := updated.(Model)
+	if got.playlists.fetchingFor["B"] {
+		t.Error("expected fetchingFor[B] cleared after result lands")
+	}
+	if len(got.playlists.tracksByName["B"]) != 2 {
+		t.Errorf("tracksByName[B] = %v; want 2 entries", got.playlists.tracksByName["B"])
+	}
+}

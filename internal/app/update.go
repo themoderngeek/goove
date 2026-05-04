@@ -106,10 +106,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case playlistTracksMsg:
+		// Phase 2: populate the persistent track cache.
+		delete(m.playlists.fetchingFor, msg.name)
+		if msg.err != nil {
+			m.playlists.err = msg.err
+		} else {
+			m.playlists.tracksByName[msg.name] = msg.tracks
+		}
+		// Existing browser-modal write (Phase 2 still keeps the modal alive):
 		if m.browser != nil && len(m.browser.playlists) > 0 {
 			current := m.browser.playlists[m.browser.playlistCursor].Name
 			if msg.name != current {
-				// Stale result — the cursor has moved since this fetch was issued.
 				return m, nil
 			}
 			m.browser.loadingTracks = false
