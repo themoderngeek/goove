@@ -212,6 +212,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		// Fall through to the now-playing key handler for transport keys etc.
 	}
 
+	// Phase 2: focus-routed panel handlers run before globals.
+	if m.search == nil && m.picker == nil && m.mode != modeBrowser {
+		switch m.focusZ {
+		case focusPlaylists:
+			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
+				return mm, cmd
+			}
+		}
+	}
+
 	switch msg.String() {
 	case "tab":
 		m.focusZ = nextFocus(m.focusZ)

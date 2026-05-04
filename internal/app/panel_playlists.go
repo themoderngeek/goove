@@ -56,6 +56,41 @@ func onFocusPlaylists(m Model) (Model, tea.Cmd) {
 	return m, fetchPlaylists(m.client)
 }
 
+// handlePlaylistsKey routes keys when focusZ == focusPlaylists. Returns
+// (model, cmd, handled). When handled is false, the caller falls through to
+// globals.
+func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
+	switch msg.String() {
+	case "up", "k":
+		if m.playlists.cursor > 0 {
+			m.playlists.cursor--
+			m = onPlaylistsCursorChanged(m)
+		}
+		return m, nil, true
+	case "down", "j":
+		if m.playlists.cursor < len(m.playlists.items)-1 {
+			m.playlists.cursor++
+			m = onPlaylistsCursorChanged(m)
+		}
+		return m, nil, true
+	}
+	return m, nil, false
+}
+
+// onPlaylistsCursorChanged updates the main pane's selected playlist (live
+// preview, Q3-C) and resets the main pane cursor. Track-fetch wiring is
+// added in the next task.
+func onPlaylistsCursorChanged(m Model) Model {
+	if len(m.playlists.items) == 0 {
+		return m
+	}
+	name := m.playlists.items[m.playlists.cursor].Name
+	m.main.selectedPlaylist = name
+	m.main.cursor = 0
+	m.main.mode = mainPaneTracks
+	return m
+}
+
 // panelBox is the shared lipgloss box used by every left-column panel.
 // focused=true draws the border in the focus colour.
 func panelBox(title, body string, width, height int, focused bool) string {
