@@ -143,18 +143,31 @@ func panelBox(title, body string, width, height int, focused bool) string {
 	inner := width - 2 // chars between the two corner pieces
 
 	// Top row: ┌─ title ─...─┐
+	// We always make topInner exactly `inner` columns wide. The segment
+	// "─ <title> " takes lipgloss.Width(seg) columns; the remaining
+	// `inner - segWidth` columns get filled with trailing dashes. If the
+	// title is too long for inner, clip it so at least one trailing dash
+	// fits — that keeps the right corner aligned.
 	var topInner string
 	if title == "" {
 		topInner = strings.Repeat("─", inner)
 	} else {
-		seg := "─ " + title + " "
-		segWidth := lipgloss.Width(seg)
-		if segWidth >= inner {
-			// Title too long; truncate so we still fit the corners.
-			topInner = "─" + truncate(" "+title+" ", inner-1)
-		} else {
-			topInner = seg + strings.Repeat("─", inner-segWidth)
+		// Available columns for the title text: inner - 3 reserved for
+		// "─ " (leading) + " " (gap) + at least one trailing "─".
+		avail := inner - 3
+		if avail < 1 {
+			avail = 1
 		}
+		clipped := title
+		if lipgloss.Width(title) > avail {
+			clipped = truncate(title, avail)
+		}
+		seg := "─ " + clipped + " "
+		fill := inner - lipgloss.Width(seg)
+		if fill < 0 {
+			fill = 0
+		}
+		topInner = seg + strings.Repeat("─", fill)
 	}
 	top := borderStyle.Render("┌" + topInner + "┐")
 	bottom := borderStyle.Render("└" + strings.Repeat("─", inner) + "┘")
