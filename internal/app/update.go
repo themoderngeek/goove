@@ -54,94 +54,115 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case devicesMsg:
-		if m.picker == nil {
-			return m, nil // user esc'd before fetch returned — discard
+		m.output.loading = false
+		if msg.err != nil {
+			// List-fetch failure — flash in the bottom strip (auto-dissolves)
+			// rather than clobbering the Output panel. User retries by
+			// re-focusing the panel.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
 		}
-		m.picker.loading = false
-		m.picker.err = msg.err
-		m.picker.devices = msg.devices
-		// Land cursor on currently-selected device, if any.
+		m.output.devices = msg.devices
 		for i, d := range msg.devices {
 			if d.Selected {
-				m.picker.cursor = i
+				m.output.cursor = i
 				break
 			}
 		}
 		return m, nil
 
 	case deviceSetMsg:
-		if m.picker == nil {
-			return m, nil // user esc'd before set returned — discard
-		}
+		m.output.loading = false
 		if msg.err != nil {
-			m.picker.loading = false
-			m.picker.err = msg.err
-			return m, nil
+			// Per-action error — transient, belongs in the bottom error strip
+			// (auto-dissolves) so the user can see the device list to retry.
+			// Mirrors the Phase 2 fix for playlistTracksMsg errors.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
 		}
-		// Success: close the picker. Next 1Hz status tick re-renders the player view.
-		m.picker = nil
-		return m, nil
+		return m, fetchDevices(m.client)
 
 	case playlistsMsg:
-		if m.browser != nil {
-			m.browser.loadingLists = false
-			m.browser.err = msg.err
-			if msg.err == nil {
-				m.browser.playlists = msg.playlists
-				if m.browser.playlistCursor >= len(msg.playlists) {
-					m.browser.playlistCursor = 0
-				}
-			}
+		m.playlists.loading = false
+		if msg.err != nil {
+			// List-fetch failure — flash in the bottom strip (auto-dissolves)
+			// rather than clobbering the Playlists panel. User retries by
+			// re-focusing the panel.
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
+		m.playlists.items = msg.playlists
+		if m.playlists.cursor >= len(msg.playlists) {
+			m.playlists.cursor = 0
 		}
 		return m, nil
+
+	case playlistTracksDebounceMsg:
+		// Stale: cursor has moved since this tick was scheduled.
+		if msg.seq != m.playlists.seq {
+			return m, nil
+		}
+		// Raced: a previous tick's result already populated the cache.
+		if _, cached := m.playlists.tracksByName[msg.name]; cached {
+			return m, nil
+		}
+		// Already in flight (paranoia — shouldn't happen because seq guards
+		// concurrent debounces).
+		if m.playlists.fetchingFor[msg.name] {
+			return m, nil
+		}
+		// Clear any prior error from a previous attempt — the user is retrying
+		// by revisiting this playlist. Also avoids "loading… (with stale error
+		// message above)" double-render in the main pane during the new fetch.
+		delete(m.playlists.trackErrByName, msg.name)
+		m.playlists.fetchingFor[msg.name] = true
+		return m, fetchPlaylistTracks(m.client, msg.name)
 
 	case playlistTracksMsg:
-		if m.browser != nil && len(m.browser.playlists) > 0 {
-			current := m.browser.playlists[m.browser.playlistCursor].Name
-			if msg.name != current {
-				// Stale result — the cursor has moved since this fetch was issued.
-				return m, nil
-			}
-			m.browser.loadingTracks = false
-			m.browser.err = msg.err
-			if msg.err == nil {
-				m.browser.tracks = msg.tracks
-				m.browser.tracksFor = msg.name
-				m.browser.trackCursor = 0
-			}
+		delete(m.playlists.fetchingFor, msg.name)
+		if msg.err != nil {
+			// Per-playlist error — surfaced in the main pane next to the playlist
+			// it belongs to, not in the global error footer.
+			m.playlists.trackErrByName[msg.name] = msg.err
+		} else {
+			delete(m.playlists.trackErrByName, msg.name)
+			m.playlists.tracksByName[msg.name] = msg.tracks
 		}
 		return m, nil
 
-	case searchDebounceMsg:
-		if m.search == nil || msg.seq != m.search.seq {
-			return m, nil
-		}
-		if m.search.query == "" {
-			return m, nil
-		}
-		m.search.loading = true
-		return m, fetchSearch(m.client, m.search.seq, m.search.query)
-
-	case searchResultsMsg:
-		if m.search == nil || msg.seq != m.search.seq || msg.query != m.search.query {
-			return m, nil
+	case searchPanelResultsMsg:
+		if msg.seq != m.search.seq {
+			return m, nil // stale
 		}
 		m.search.loading = false
-		m.search.err = msg.err
-		m.search.results = domain.RankSearchResults(msg.result.Tracks, msg.query)
-		m.search.total = msg.result.Total
-		m.search.cursor = 0
-		return m, nil
-
-	case searchPlayedMsg:
-		if m.search == nil || msg.seq != m.search.seq {
-			return m, nil
-		}
 		if msg.err != nil {
+			// Preserve inputMode + query so the user can press Enter to retry.
+			// lastQuery and total stay unchanged so we don't pollute the "done"
+			// render with stale data from a prior successful search.
 			m.search.err = msg.err
 			return m, nil
 		}
-		m.search = nil
+		m.search.err = nil
+		m.search.inputMode = false
+		m.search.lastQuery = msg.query
+		m.search.total = msg.result.Total
+		// Land results in main pane.
+		m.main.mode = mainPaneSearchResults
+		m.main.searchResults = domain.RankSearchResults(msg.result.Tracks, msg.query)
+		m.main.cursor = 0
+		// Focus jumps to main.
+		m.focus = focusMain
+		return m, nil
+
+	case playTrackResultMsg:
+		if msg.err != nil {
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
 		return m, nil
 	}
 	return m, nil
@@ -187,22 +208,51 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.search != nil {
-		return m.handleSearchKey(msg)
-	}
-
-	if m.picker != nil {
-		return m.handlePickerKey(msg)
-	}
-
-	if m.mode == modeBrowser {
-		if mm, cmd, handled := handleBrowserKey(m, msg); handled {
+	// Phase 2: focus-routed panel handlers run before globals.
+	switch m.focus {
+	case focusPlaylists:
+		if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
 			return mm, cmd
 		}
-		// Fall through to the now-playing key handler for transport keys etc.
+	case focusSearch:
+		if mm, cmd, handled := handleSearchPanelKey(m, msg); handled {
+			return mm, cmd
+		}
+	case focusOutput:
+		if mm, cmd, handled := handleOutputKey(m, msg); handled {
+			return mm, cmd
+		}
+	case focusMain:
+		if mm, cmd, handled := handleMainKey(m, msg); handled {
+			return mm, cmd
+		}
 	}
 
 	switch msg.String() {
+	case "tab":
+		m.focus = nextFocus(m.focus)
+		return m.onFocusEntered()
+
+	case "shift+tab":
+		m.focus = prevFocus(m.focus)
+		return m.onFocusEntered()
+
+	case "1":
+		m.focus = focusPlaylists
+		return m.onFocusEntered()
+
+	case "2":
+		m.focus = focusSearch
+		return m.onFocusEntered()
+
+	case "3":
+		m.focus = focusOutput
+		return m.onFocusEntered()
+
+	case "4":
+		m.focus = focusMain
+		return m.onFocusEntered()
+
 	case "q":
 		return m, tea.Quit
 
@@ -225,81 +275,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.applyVolumeDelta(-5)
 
 	case "o":
-		// Open the device picker. Suppressed in Disconnected — the AirPlay
-		// device list requires Music to be running. permissionDenied is also
-		// suppressed (handled at the top of this function).
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		m.picker = &pickerState{loading: true}
-		return m, fetchDevices(m.client)
-
-	case "l":
-		// 'l' opens the playlist browser. No-op when already in browser
-		// (spec: 'l' in browser is a no-op; esc returns to now-playing).
-		if m.mode == modeBrowser {
-			return m, nil
-		}
-		m.mode = modeBrowser
-		m.browser = &browserState{loadingLists: true}
-		return m, fetchPlaylists(m.client)
+		m.focus = focusOutput
+		mm, cmd := onFocusOutput(m)
+		return mm, cmd
 
 	case "/":
-		// Suppress search in Disconnected, when picker is open, or when in browser.
-		// permissionDenied is already handled at the top of Update.
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		if m.picker != nil || m.mode == modeBrowser {
-			return m, nil
-		}
-		m.search = &searchState{}
+		m.focus = focusSearch
+		m.search.inputMode = true
 		return m, nil
 	}
 	return m, nil
 }
 
-// handlePickerKey routes keystrokes when the picker overlay is open.
-// Transport keys are suppressed by virtue of routing through this function
-// instead of the normal switch.
-func (m Model) handlePickerKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.picker.loading {
-		// Only esc/q work while loading.
-		if msg.String() == "esc" || msg.String() == "q" {
-			m.picker = nil
-			return m, nil
-		}
-		return m, nil
-	}
-
-	switch msg.String() {
-	case "esc", "q":
-		m.picker = nil
-		return m, nil
-
-	case "up", "k":
-		if m.picker.cursor > 0 {
-			m.picker.cursor--
-		}
-		return m, nil
-
-	case "down", "j":
-		if m.picker.cursor < len(m.picker.devices)-1 {
-			m.picker.cursor++
-		}
-		return m, nil
-
-	case "enter":
-		if len(m.picker.devices) == 0 {
-			return m, nil
-		}
-		target := m.picker.devices[m.picker.cursor].Name
-		m.picker.loading = true
-		client := m.client
-		return m, func() tea.Msg {
-			err := client.SetAirPlayDevice(context.Background(), target)
-			return deviceSetMsg{err: err}
-		}
+// onFocusEntered is called whenever m.focus has just been changed. Dispatches
+// to the per-panel on-focus hook, which may return a fetch Cmd.
+func (m Model) onFocusEntered() (Model, tea.Cmd) {
+	switch m.focus {
+	case focusPlaylists:
+		return onFocusPlaylists(m)
+	case focusOutput:
+		return onFocusOutput(m)
 	}
 	return m, nil
 }

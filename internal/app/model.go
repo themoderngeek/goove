@@ -33,59 +33,64 @@ type artState struct {
 	fetching bool
 }
 
-// pickerState is the modal device-picker overlay state.
-// nil on Model means "picker not open"; non-nil means "picker is showing."
-// While loading is true, only esc/q are honoured (cancel cancels both fetch and set).
-type pickerState struct {
-	loading bool
+// playlistsPanel is the state of the Playlists panel (left, top of stack).
+// items is the cached playlist list; cursor is the highlighted row;
+// tracksByName caches per-playlist tracks for live-preview hits.
+type playlistsPanel struct {
+	items          []domain.Playlist
+	cursor         int
+	loading        bool
+	tracksByName   map[string][]domain.Track
+	fetchingFor    map[string]bool
+	trackErrByName map[string]error // per-playlist track-fetch errors; surfaced in the main pane
+	seq            uint64           // bumped on every cursor change; debounce drops stale ticks
+}
+
+// searchPanel is the state of the Search panel (left, middle of stack).
+// inputMode true means typing routes into the query; outside input mode the
+// panel is "idle" and shows a muted prompt. Result rows themselves live on
+// mainPanel.searchResults — this struct holds only the query-input and
+// summary state (last-fired query and total match count for the panel's
+// "N results" line).
+type searchPanel struct {
+	inputMode bool
+	query     string
+	seq       uint64
+	loading   bool
+	lastQuery string
+	total     int
+	err       error
+}
+
+// outputPanel is the state of the Output panel (left, bottom of stack).
+// Devices are fetched lazily on first focus and cached. Selection is
+// two-step (Q3-C in the design): cursor moves don't switch the audio
+// device — only ⏎ does.
+type outputPanel struct {
 	devices []domain.AudioDevice
 	cursor  int
-	err     error
-}
-
-// searchState is the modal search overlay state.
-// nil on Model means "search not open"; non-nil means "search modal showing."
-//
-// seq is bumped on every keystroke; in-flight debounce ticks and result
-// messages carry the seq they were issued under, so stale ones are dropped
-// when seq advances. Same pattern as the artwork fetch's track-key guard.
-type searchState struct {
-	query   string
-	seq     uint64
 	loading bool
-	results []domain.Track
-	total   int
-	cursor  int
-	err     error
 }
 
-type viewMode int
+// mainPaneMode toggles what content the main pane displays. Tracks of the
+// playlist currently selected on the left (default), or the rows of the
+// most recent search.
+type mainPaneMode int
 
 const (
-	modeNowPlaying viewMode = iota
-	modeBrowser
+	mainPaneTracks mainPaneMode = iota
+	mainPaneSearchResults
 )
 
-type browserPane int
-
-const (
-	leftPane  browserPane = iota // playlists
-	rightPane                    // tracks of selected playlist
-)
-
-// browserState is the modal browser-view state. nil on Model means "browser
-// not open"; non-nil means "browser is showing." Loading flags suppress
-// duplicate fetches while a Cmd is in flight.
-type browserState struct {
-	pane           browserPane
-	playlists      []domain.Playlist
-	playlistCursor int
-	loadingLists   bool
-	tracks         []domain.Track // tracks of the playlist at playlistCursor
-	tracksFor      string         // name of the playlist tracks were last fetched for
-	trackCursor    int
-	loadingTracks  bool
-	err            error
+// mainPanel is the state of the right-hand main pane. searchResults is
+// populated by the Search panel's enter handler when it fires a query;
+// this is intentional cross-struct ownership — the Search panel owns
+// query input, the main pane owns the rows.
+type mainPanel struct {
+	mode             mainPaneMode
+	cursor           int
+	selectedPlaylist string
+	searchResults    []domain.Track
 }
 
 // Model holds the entire goove TUI state.
@@ -106,10 +111,13 @@ type Model struct {
 
 	art      artState
 	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
-	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
-	mode     viewMode
-	browser  *browserState
-	search   *searchState // nil ⇒ search modal not open
+
+	// New layout state (Phase 1).
+	focus     focusKind
+	playlists playlistsPanel
+	search    searchPanel
+	output    outputPanel
+	main      mainPanel
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
@@ -121,6 +129,11 @@ func New(client music.Client, renderer art.Renderer) Model {
 		renderer:   renderer,
 		state:      Disconnected{},
 		lastVolume: 50,
+		playlists: playlistsPanel{
+			tracksByName:   make(map[string][]domain.Track),
+			fetchingFor:    make(map[string]bool),
+			trackErrByName: make(map[string]error),
+		},
 	}
 }
 

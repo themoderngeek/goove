@@ -481,767 +481,179 @@ func TestArtworkMsgWithErrorClearsFetchingButLeavesOutputEmpty(t *testing.T) {
 	}
 }
 
-func TestOKeyOpensPickerInConnected(t *testing.T) {
+func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 	c := fake.New()
 	c.Launch(context.Background())
-	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
-	m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
+	tmp, _ := m.Update(statusMsg{now: np})
+	m = tmp.(Model)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-
-	if got.picker == nil {
-		t.Fatal("expected picker to be open after 'o' keypress")
-	}
-	if !got.picker.loading {
-		t.Error("expected picker.loading = true while fetch is in flight")
+	if got.focus != focusOutput {
+		t.Errorf("focusZ = %v; want focusOutput", got.focus)
 	}
 	if cmd == nil {
-		t.Error("expected a fetchDevices Cmd")
+		t.Fatal("expected fetchDevices Cmd")
 	}
-}
-
-func TestOKeyOpensPickerInIdle(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.state = Idle{Volume: 50}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker == nil {
-		t.Fatal("expected picker to be open in Idle state")
+	if _, ok := cmd().(devicesMsg); !ok {
+		t.Fatalf("cmd produced %T; want devicesMsg", cmd())
 	}
 }
 
 func TestOKeyIsNoOpInDisconnected(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// Default state is Disconnected{}.
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil (suppressed in Disconnected)", updated.(Model).picker)
-	}
-}
-
-func TestOKeyIsNoOpWhenPermissionDenied(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.permissionDenied = true
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil (suppressed when permissionDenied)", updated.(Model).picker)
-	}
-}
-
-func TestPickerArrowsNavigateCursor(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{
-			{Name: "A"}, {Name: "B"}, {Name: "C"},
-		},
-		cursor: 0,
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updated.(Model).picker.cursor != 1 {
-		t.Errorf("cursor after down = %d; want 1", updated.(Model).picker.cursor)
-	}
-
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor after up = %d; want 0", updated.(Model).picker.cursor)
-	}
-}
-
-func TestPickerArrowsClampAtBoundaries(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-	// Up at top — stays at 0
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor at top after up = %d; want 0", updated.(Model).picker.cursor)
-	}
-	// Down past bottom — clamps to last
-	m = updated.(Model)
-	for range 5 {
-		tmp, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		m = tmp.(Model)
-	}
-	if m.picker.cursor != 1 {
-		t.Errorf("cursor after spam-down = %d; want 1 (clamped)", m.picker.cursor)
-	}
-}
-
-func TestPickerVIKeysAlsoNavigate(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if updated.(Model).picker.cursor != 1 {
-		t.Errorf("cursor after j = %d; want 1", updated.(Model).picker.cursor)
-	}
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor after k = %d; want 0", updated.(Model).picker.cursor)
-	}
-}
-
-func TestPickerEscClosesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after esc", updated.(Model).picker)
-	}
-}
-
-func TestPickerQAlsoCloses(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after q", updated.(Model).picker)
-	}
-}
-
-func TestPickerEnterTriggersSetAirPlayDevice(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetDevices([]domain.AudioDevice{
-		{Name: "Computer", Selected: true},
-		{Name: "Kitchen Sonos"},
-	})
-	m := New(c, nil)
-	m.picker = &pickerState{
-		devices: []domain.AudioDevice{
-			{Name: "Computer", Selected: true},
-			{Name: "Kitchen Sonos"},
-		},
-		cursor: 1, // pointing at Kitchen Sonos
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newTestModel() // starts in Disconnected
+	before := m.focus
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-
-	if !got.picker.loading {
-		t.Error("expected loading=true after enter")
-	}
-	if cmd == nil {
-		t.Fatal("expected a Cmd from enter")
-	}
-	out := cmd()
-	dsm, ok := out.(deviceSetMsg)
-	if !ok {
-		t.Fatalf("cmd returned %T; want deviceSetMsg", out)
-	}
-	if dsm.err != nil {
-		t.Errorf("deviceSetMsg.err = %v; want nil", dsm.err)
-	}
-}
-
-func TestPickerWhileLoadingOnlyEscWorks(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  0,
-	}
-
-	// Down should be ignored.
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updated.(Model).picker.cursor != 0 {
-		t.Errorf("cursor moved while loading = %d; want 0", updated.(Model).picker.cursor)
-	}
-	// Esc still closes.
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updated.(Model).picker != nil {
-		t.Error("esc did not close picker while loading")
-	}
-}
-
-func TestTransportKeysSuppressedWhilePickerOpen(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
-	m := New(c, nil)
-	m.picker = &pickerState{devices: []domain.AudioDevice{{Name: "A"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if c.PlayPauseCalls != 0 {
-		t.Errorf("PlayPauseCalls = %d; want 0 (suppressed by picker)", c.PlayPauseCalls)
-	}
-	// Picker still open after the suppressed key.
-	if updated.(Model).picker == nil {
-		t.Error("picker closed unexpectedly")
-	}
-}
-
-func TestDevicesMsgPopulatesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{loading: true}
-
-	devices := []domain.AudioDevice{
-		{Name: "Computer", Selected: false},
-		{Name: "Kitchen Sonos", Selected: true},
-	}
-	updated, _ := m.Update(devicesMsg{devices: devices, err: nil})
-	got := updated.(Model)
-
-	if got.picker.loading {
-		t.Error("loading still true after devicesMsg")
-	}
-	if len(got.picker.devices) != 2 {
-		t.Errorf("len = %d; want 2", len(got.picker.devices))
-	}
-	// Cursor should land on the currently-selected device.
-	if got.picker.cursor != 1 {
-		t.Errorf("cursor = %d; want 1 (Kitchen Sonos has Selected=true)", got.picker.cursor)
-	}
-}
-
-func TestDevicesMsgErrorShownInPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{loading: true}
-
-	updated, _ := m.Update(devicesMsg{err: music.ErrUnavailable})
-	got := updated.(Model)
-
-	if got.picker.loading {
-		t.Error("loading still true after error devicesMsg")
-	}
-	if got.picker.err == nil {
-		t.Error("expected picker.err set")
-	}
-}
-
-func TestDevicesMsgIgnoredWhenPickerClosed(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// picker is nil — user esc'd before fetch landed.
-
-	updated, _ := m.Update(devicesMsg{devices: []domain.AudioDevice{{Name: "A"}}})
-	if updated.(Model).picker != nil {
-		t.Error("picker should remain nil; stale devicesMsg should be discarded")
-	}
-}
-
-func TestDeviceSetMsgSuccessClosesPicker(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}},
-	}
-
-	updated, _ := m.Update(deviceSetMsg{err: nil})
-	if updated.(Model).picker != nil {
-		t.Errorf("picker = %+v; want nil after successful set", updated.(Model).picker)
-	}
-}
-
-func TestDeviceSetMsgErrorKeepsPickerOpen(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.picker = &pickerState{
-		loading: true,
-		devices: []domain.AudioDevice{{Name: "A"}, {Name: "B"}},
-		cursor:  1,
-	}
-
-	updated, _ := m.Update(deviceSetMsg{err: music.ErrDeviceNotFound})
-	got := updated.(Model)
-
-	if got.picker == nil {
-		t.Fatal("picker closed on error; want it to stay open")
-	}
-	if got.picker.loading {
-		t.Error("loading still true after error deviceSetMsg")
-	}
-	if got.picker.err == nil {
-		t.Error("expected picker.err set")
-	}
-	if got.picker.cursor != 1 {
-		t.Errorf("cursor changed unexpectedly to %d", got.picker.cursor)
-	}
-}
-
-func TestDeviceSetMsgIgnoredWhenPickerClosed(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	// picker is nil — user esc'd before set landed.
-
-	updated, _ := m.Update(deviceSetMsg{err: nil})
-	if updated.(Model).picker != nil {
-		t.Error("picker should remain nil")
-	}
-}
-
-func TestKeyLOpensBrowserAndDispatchesFetch(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-
-	mm := updated.(Model)
-	if mm.mode != modeBrowser {
-		t.Errorf("mode = %v; want modeBrowser", mm.mode)
-	}
-	if mm.browser == nil {
-		t.Fatal("browser state nil; want non-nil after pressing 'l'")
-	}
-	if !mm.browser.loadingLists {
-		t.Errorf("browser.loadingLists = false; want true")
-	}
-	if cmd == nil {
-		t.Fatal("expected a fetchPlaylists Cmd; got nil")
-	}
-}
-
-func TestPlaylistsMsgPopulatesState(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{loadingLists: true}
-
-	updated, _ := m.Update(playlistsMsg{
-		playlists: []domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 5}},
-	})
-
-	mm := updated.(Model)
-	if mm.browser.loadingLists {
-		t.Errorf("loadingLists still true after message")
-	}
-	if len(mm.browser.playlists) != 1 || mm.browser.playlists[0].Name != "Liked Songs" {
-		t.Errorf("playlists = %+v", mm.browser.playlists)
-	}
-	if mm.browser.err != nil {
-		t.Errorf("err = %v; want nil", mm.browser.err)
-	}
-}
-
-func TestPlaylistsMsgErrorStoredInState(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{loadingLists: true}
-
-	updated, _ := m.Update(playlistsMsg{err: music.ErrNotRunning})
-
-	mm := updated.(Model)
-	if mm.browser.err == nil {
-		t.Errorf("err = nil; want non-nil")
-	}
-	if mm.browser.loadingLists {
-		t.Errorf("loadingLists still true after error")
-	}
-}
-
-func TestBrowserLeftPaneDownMovesCursor(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}, {Name: "C"}},
-	}
-
-	for _, key := range []tea.KeyMsg{
-		{Type: tea.KeyDown},
-		{Type: tea.KeyRunes, Runes: []rune{'j'}},
-	} {
-		t.Run(key.String(), func(t *testing.T) {
-			startCursor := m.browser.playlistCursor
-			updated, _ := m.Update(key)
-			mm := updated.(Model)
-			if mm.browser.playlistCursor != startCursor+1 {
-				t.Errorf("cursor = %d; want %d", mm.browser.playlistCursor, startCursor+1)
-			}
-			m = mm // carry state forward to test the second key
-		})
-	}
-}
-
-func TestBrowserLeftPaneUpMovesCursor(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:           leftPane,
-		playlists:      []domain.Playlist{{Name: "A"}, {Name: "B"}, {Name: "C"}},
-		playlistCursor: 2,
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	mm := updated.(Model)
-	if mm.browser.playlistCursor != 1 {
-		t.Errorf("cursor = %d; want 1", mm.browser.playlistCursor)
-	}
-
-	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	mm = updated.(Model)
-	if mm.browser.playlistCursor != 0 {
-		t.Errorf("cursor = %d; want 0", mm.browser.playlistCursor)
-	}
-}
-
-func TestBrowserLeftPaneCursorClampsAtBounds(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}},
-	}
-
-	// Up at top stays at 0.
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updated.(Model).browser.playlistCursor != 0 {
-		t.Errorf("up at 0 should clamp")
-	}
-
-	// Down past last stays at last.
-	m.browser.playlistCursor = 1
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updated.(Model).browser.playlistCursor != 1 {
-		t.Errorf("down at last should clamp")
-	}
-}
-
-func TestBrowserLeftPaneNavigationDoesNotFetchTracks(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetPlaylists([]domain.Playlist{{Name: "A"}, {Name: "B"}})
-	c.SetPlaylistTracks("A", []domain.Track{{Title: "TA"}})
-	c.SetPlaylistTracks("B", []domain.Track{{Title: "TB"}})
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "A"}, {Name: "B"}},
-	}
-
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if cmd != nil {
-		t.Errorf("cursor move on left pane should not return a Cmd; got %T", cmd())
-	}
-}
-
-func TestBrowserTabSwitchesToRightPaneAndFetchesTracks(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:           leftPane,
-		playlists:      []domain.Playlist{{Name: "Liked Songs"}},
-		playlistCursor: 0,
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	mm := updated.(Model)
-
-	if mm.browser.pane != rightPane {
-		t.Errorf("pane = %v; want rightPane", mm.browser.pane)
-	}
-	if !mm.browser.loadingTracks {
-		t.Errorf("loadingTracks = false; want true after focusing right pane")
-	}
-	if cmd == nil {
-		t.Fatal("expected fetchPlaylistTracks Cmd; got nil")
-	}
-	// Verify the cmd produces a playlistTracksMsg for the right playlist.
-	msg := cmd()
-	pmsg, ok := msg.(playlistTracksMsg)
-	if !ok {
-		t.Fatalf("cmd produced %T; want playlistTracksMsg", msg)
-	}
-	if pmsg.name != "Liked Songs" {
-		t.Errorf("fetched name = %q; want Liked Songs", pmsg.name)
-	}
-}
-
-func TestBrowserRightArrowAlsoSwitchesPane(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "X"}},
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if updated.(Model).browser.pane != rightPane {
-		t.Errorf("right arrow did not switch pane")
-	}
-}
-
-func TestBrowserShiftTabReturnsToLeftPaneNoFetch(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:   rightPane,
-		tracks: []domain.Track{{Title: "T"}},
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	mm := updated.(Model)
-	if mm.browser.pane != leftPane {
-		t.Errorf("pane = %v; want leftPane", mm.browser.pane)
+	if got.focus != before {
+		t.Errorf("focusZ changed to %v; want no change (suppressed in Disconnected)", got.focus)
 	}
 	if cmd != nil {
-		t.Errorf("returning to left should not trigger a Cmd")
+		t.Errorf("expected no Cmd in Disconnected, got %T", cmd)
 	}
 }
 
-func TestPlaylistTracksMsgPopulatesState(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:          rightPane,
-		playlists:     []domain.Playlist{{Name: "Liked Songs"}},
-		loadingTracks: true,
-	}
-
-	updated, _ := m.Update(playlistTracksMsg{
-		name:   "Liked Songs",
-		tracks: []domain.Track{{Title: "A"}, {Title: "B"}},
-	})
-	mm := updated.(Model)
-	if mm.browser.loadingTracks {
-		t.Errorf("loadingTracks still true after message")
-	}
-	if len(mm.browser.tracks) != 2 {
-		t.Errorf("tracks = %+v", mm.browser.tracks)
-	}
-	if mm.browser.tracksFor != "Liked Songs" {
-		t.Errorf("tracksFor = %q; want Liked Songs", mm.browser.tracksFor)
+func TestTabAdvancesFocusFromPlaylistsToSearch(t *testing.T) {
+	m := newTestModel()
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	got := updated.(Model)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ after Tab = %v; want focusSearch", got.focus)
 	}
 }
 
-func TestPlaylistTracksMsgIgnoresStaleResult(t *testing.T) {
-	// Cursor moved to playlist B, then B's fetch was issued, but A's
-	// older fetch arrives first. We should ignore A's tracks.
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:           rightPane,
-		playlists:      []domain.Playlist{{Name: "A"}, {Name: "B"}},
-		playlistCursor: 1, // B is currently selected
-		loadingTracks:  true,
-	}
-
-	updated, _ := m.Update(playlistTracksMsg{
-		name:   "A", // stale — cursor is on B now
-		tracks: []domain.Track{{Title: "From A"}},
-	})
-	mm := updated.(Model)
-	if len(mm.browser.tracks) != 0 {
-		t.Errorf("stale result should not have populated tracks: %+v", mm.browser.tracks)
-	}
-	if !mm.browser.loadingTracks {
-		t.Errorf("loadingTracks should remain true (the right fetch hasn't returned)")
+func TestShiftTabReversesFocus(t *testing.T) {
+	m := newTestModel()
+	m.focus = focusOutput
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	got := updated.(Model)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ after Shift-Tab from Output = %v; want focusSearch", got.focus)
 	}
 }
 
-func TestBrowserEnterOnLeftPlaysWholePlaylist(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "Liked Songs"}},
-	}
-
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected playPlaylist Cmd; got nil")
-	}
-	msg := cmd()
-	if _, ok := msg.(playPlaylistMsg); !ok {
-		t.Fatalf("cmd produced %T; want playPlaylistMsg", msg)
-	}
-	rec := c.PlayPlaylistRecord()
-	if len(rec) != 1 || rec[0].Name != "Liked Songs" || rec[0].FromIdx != 0 {
-		t.Errorf("record = %+v; want one call with Name=Liked Songs FromIdx=0", rec)
-	}
-}
-
-func TestBrowserEnterOnRightPlaysFromTrack(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:        rightPane,
-		playlists:   []domain.Playlist{{Name: "Liked Songs"}},
-		tracks:      []domain.Track{{Title: "T1"}, {Title: "T2"}, {Title: "T3"}},
-		tracksFor:   "Liked Songs",
-		trackCursor: 2,
-	}
-
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected playPlaylist Cmd; got nil")
-	}
-	cmd()
-	rec := c.PlayPlaylistRecord()
-	if len(rec) != 1 || rec[0].FromIdx != 2 {
-		t.Errorf("record = %+v; want one call with FromIdx=2", rec)
-	}
-}
-
-func TestBrowserEnterOnRightWithEmptyTracksIsNoOp(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      rightPane,
-		playlists: []domain.Playlist{{Name: "Empty"}},
-		tracks:    []domain.Track{},
-	}
-
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd != nil {
-		t.Errorf("enter on empty tracks should be a no-op; got Cmd")
-	}
-}
-
-func TestBrowserRRefetchesPlaylistsOnLeftPane(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      leftPane,
-		playlists: []domain.Playlist{{Name: "A"}},
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	mm := updated.(Model)
-	if !mm.browser.loadingLists {
-		t.Errorf("loadingLists = false; want true")
-	}
-	if cmd == nil {
-		t.Fatal("expected fetchPlaylists Cmd; got nil")
-	}
-	if _, ok := cmd().(playlistsMsg); !ok {
-		t.Errorf("Cmd did not produce playlistsMsg")
-	}
-}
-
-func TestBrowserRRefetchesTracksOnRightPane(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{
-		pane:      rightPane,
-		playlists: []domain.Playlist{{Name: "Liked Songs"}},
-		tracksFor: "Liked Songs",
-		tracks:    []domain.Track{{Title: "T"}},
-	}
-
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	mm := updated.(Model)
-	if !mm.browser.loadingTracks {
-		t.Errorf("loadingTracks = false; want true")
-	}
-	if cmd == nil {
-		t.Fatal("expected fetchPlaylistTracks Cmd; got nil")
-	}
-	msg := cmd()
-	pmsg, ok := msg.(playlistTracksMsg)
-	if !ok {
-		t.Fatalf("cmd produced %T; want playlistTracksMsg", msg)
-	}
-	if pmsg.name != "Liked Songs" {
-		t.Errorf("refetch name = %q; want Liked Songs", pmsg.name)
-	}
-}
-
-func TestBrowserEscReturnsToNowPlaying(t *testing.T) {
-	c := fake.New()
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	mm := updated.(Model)
-	if mm.mode != modeNowPlaying {
-		t.Errorf("mode = %v; want modeNowPlaying", mm.mode)
-	}
-	if mm.browser != nil {
-		t.Errorf("browser state should be cleared on esc; got %+v", mm.browser)
-	}
-}
-
-func TestBrowserModeTransportKeysStillFire(t *testing.T) {
-	c := fake.New()
-	c.Launch(context.Background())
-	m := New(c, nil)
-	m.mode = modeBrowser
-	m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
-
+func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 	tests := []struct {
-		name string
-		key  tea.KeyMsg
-		want func(*fake.Client) bool
+		key  rune
+		want focusKind
 	}{
-		{"space → playpause", tea.KeyMsg{Type: tea.KeySpace}, func(c *fake.Client) bool { return c.PlayPauseCalls == 1 }},
-		{"n → next", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}, func(c *fake.Client) bool { return c.NextCalls == 1 }},
-		{"p → prev", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}, func(c *fake.Client) bool { return c.PrevCalls == 1 }},
+		{'1', focusPlaylists},
+		{'2', focusSearch},
+		{'3', focusOutput},
+		{'4', focusMain},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := fake.New()
-			c.Launch(context.Background())
-			m := New(c, nil)
-			// Connected state so space dispatches PlayPause (not Launch).
-			m.state = Connected{Now: domain.NowPlaying{Track: domain.Track{Title: "T"}}}
-			m.mode = modeBrowser
-			m.browser = &browserState{playlists: []domain.Playlist{{Name: "X"}}}
+		m := newTestModel()
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{tt.key}})
+		got := updated.(Model)
+		if got.focus != tt.want {
+			t.Errorf("focusZ after '%c' = %v; want %v", tt.key, got.focus, tt.want)
+		}
+	}
+}
 
-			updated, cmd := m.Update(tt.key)
-			if cmd != nil {
-				cmd() // execute the Cmd so the fake's counter is incremented
-			}
-			_ = updated
-			if !tt.want(c) {
-				t.Errorf("transport call did not fire for %s", tt.name)
-			}
-		})
+func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
+	c := fake.New()
+	c.Launch(nil)
+	m := New(c, nil)
+	// focus starts at focusPlaylists by default; we force a transition to
+	// trigger the on-focus fetch.
+	m.focus = focusSearch
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	got := updated.(Model)
+	if got.focus != focusPlaylists {
+		t.Fatalf("focusZ = %v; want focusPlaylists", got.focus)
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylists Cmd on focus")
+	}
+	out := cmd()
+	if _, ok := out.(playlistsMsg); !ok {
+		t.Fatalf("cmd produced %T; want playlistsMsg", out)
+	}
+}
+
+func TestFocusingPlaylistsDoesNotRefetchWhenCached(t *testing.T) {
+	m := newTestModel()
+	m.playlists.items = []domain.Playlist{{Name: "Liked Songs"}}
+	m.focus = focusSearch
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	if cmd != nil {
+		t.Errorf("expected no Cmd when playlists already cached, got %T", cmd())
+	}
+}
+
+func TestPlaylistsMsgPopulatesPanelStateOnSuccess(t *testing.T) {
+	m := newTestModel()
+	m.playlists.loading = true
+	pls := []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	updated, _ := m.Update(playlistsMsg{playlists: pls})
+	got := updated.(Model)
+	if got.playlists.loading {
+		t.Error("loading should be cleared on success")
+	}
+	if len(got.playlists.items) != 2 {
+		t.Errorf("items = %d entries; want 2", len(got.playlists.items))
+	}
+}
+
+func TestPlaylistsMsgClearsLoadingOnError(t *testing.T) {
+	m := newTestModel()
+	m.playlists.loading = true
+	updated, cmd := m.Update(playlistsMsg{err: errors.New("boom")})
+	got := updated.(Model)
+	if got.playlists.loading {
+		t.Error("loading should be cleared even on error")
+	}
+	if got.lastError == nil {
+		t.Error("expected lastError set on list-fetch error")
+	}
+	if len(got.playlists.items) != 0 {
+		t.Errorf("items should not be populated on error, got %d", len(got.playlists.items))
+	}
+	if cmd == nil {
+		t.Fatal("expected clearErrorAfter Cmd")
+	}
+}
+
+func TestPlaylistsMsgClampsCursorWhenResultShorter(t *testing.T) {
+	m := newTestModel()
+	m.playlists.cursor = 5
+	pls := []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	updated, _ := m.Update(playlistsMsg{playlists: pls})
+	got := updated.(Model)
+	if got.playlists.cursor != 0 {
+		t.Errorf("cursor should clamp to 0 when result shorter than current cursor, got %d", got.playlists.cursor)
+	}
+}
+
+func TestSlashKeyFocusesSearchAndEntersInputMode(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
+	m := New(c, nil)
+	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
+	tmp, _ := m.Update(statusMsg{now: np})
+	m = tmp.(Model)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	got := updated.(Model)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ = %v; want focusSearch", got.focus)
+	}
+	if !got.search.inputMode {
+		t.Error("expected inputMode true")
+	}
+}
+
+func TestSlashIsNoOpInDisconnected(t *testing.T) {
+	m := newTestModel() // starts in Disconnected
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	got := updated.(Model)
+	if got.focus != focusPlaylists {
+		t.Errorf("focusZ = %v; want focusPlaylists (no change in Disconnected)", got.focus)
 	}
 }

@@ -3,18 +3,25 @@
 A small TUI for controlling Apple Music on macOS, written in Go.
 
 ```
-┌─ goove ──────────────────────────────────────────────┐
-│                                                      │
-│   ▶  Stairway to Heaven                              │
-│      Led Zeppelin                                    │
-│      Led Zeppelin IV                                 │
-│                                                      │
-│      ▮▮▮▮▮▮▮▮▯▯▯▯▯▯▯▯▯▯▯▯▯   3:42 / 8:02            │
-│                                                      │
-│      volume  ▮▮▮▮▮▯▯▯▯▯   50%                        │
-│                                                      │
-└──────────────────────────────────────────────────────┘
- space: play/pause   n: next   p: prev   +/-: vol   /: search   o: output   l: browse   q: quit
+┌─ Now Playing ──────────────────────────────────────────────┐
+│  ▓ART▓  ▶  Stairway to Heaven                              │
+│         Led Zeppelin · Led Zeppelin IV                     │
+│         ▮▮▮▮▮▮▮▮▯▯▯▯▯▯▯▯▯  3:42 / 8:02   vol 50%           │
+└────────────────────────────────────────────────────────────┘
+┌─ Playlists ───┐┌─ Liked Songs (now playing) ──────────────┐
+│ ▶ Liked Songs ││   1. Black Dog          Led Zeppelin     │
+│   Recent      ││   2. Rock and Roll      Led Zeppelin     │
+│   Top 25      ││ ▶ 3. Stairway to Heaven Led Zeppelin     │
+└───────────────┘│   4. Misty Mountain Hop Led Zeppelin     │
+┌─ Search ──────┐│                                          │
+│ /led ze       ││                                          │
+│  3 results    ││                                          │
+└───────────────┘│                                          │
+┌─ Output ──────┐│                                          │
+│ ● MacBook     ││                                          │
+│   Sonos       ││                                          │
+└───────────────┘└──────────────────────────────────────────┘
+ space:play/pause  n:next  p:prev  +/-:vol  q:quit · j/k:nav  ⏎:play
 ```
 
 ## Install
@@ -37,17 +44,36 @@ If you say no, you can re-enable it under
 
 ## Keys
 
+### Globals (work everywhere)
+
 | key | action |
 |---|---|
-| `space` | play / pause (or launch Music if not running) |
+| `space` | play / pause (or launch Music if Disconnected) |
 | `n` | next track |
 | `p` | previous track |
 | `+` / `=` | volume +5% |
 | `-` | volume −5% |
-| `/` | open search modal (modal keys: type to query, ↑↓ nav, ⏎ play, `^R` refresh, esc cancel) |
-| `o` | open output (AirPlay) picker (picker keys: ↑↓ nav, ⏎ select, esc cancel) |
-| `l` | open playlist browser (browser keys: ↑↓ nav, tab pane, ⏎ play, `r` refresh, esc back) |
 | `q` | quit |
+| `Tab` / `Shift-Tab` | cycle focus through Playlists → Search → Output → Main |
+| `1` / `2` / `3` / `4` | jump focus to Playlists / Search / Output / Main |
+| `/` | focus the Search panel and start typing |
+| `o` | focus the Output panel |
+
+### Panel-scoped
+
+| panel | key | action |
+|---|---|---|
+| Playlists | `j` / `k` / `↑` / `↓` | move cursor (live-previews tracks in main pane) |
+| Playlists | `⏎` | play the highlighted playlist |
+| Search (idle) | any printable | enter input mode and start the query |
+| Search (input) | `Backspace` | remove last rune |
+| Search (input) | `⏎` | run the search; results show in main pane |
+| Search (input) | `Esc` | clear and exit input mode |
+| Output | `j` / `k` / `↑` / `↓` | move cursor |
+| Output | `⏎` | switch audio to the highlighted device |
+| Main | `j` / `k` / `↑` / `↓` | move cursor |
+| Main | `⏎` | play the highlighted track |
+| Main | `Esc` | (search-results mode only) return to selected playlist |
 
 ## CLI commands
 
@@ -96,6 +122,10 @@ go build -o goove ./cmd/goove                            # produce a binary
 
 The design lives in [`docs/superpowers/specs/2026-04-30-goove-mvp-design.md`](docs/superpowers/specs/2026-04-30-goove-mvp-design.md).
 The plan it was built against lives in [`docs/superpowers/plans/2026-04-30-goove-mvp.md`](docs/superpowers/plans/2026-04-30-goove-mvp.md).
+The TUI overhaul (LazyGit-inspired multi-panel layout) is specced in
+[`docs/superpowers/specs/2026-05-04-tui-overhaul-design.md`](docs/superpowers/specs/2026-05-04-tui-overhaul-design.md)
+and planned in
+[`docs/superpowers/plans/2026-05-04-tui-overhaul.md`](docs/superpowers/plans/2026-05-04-tui-overhaul.md).
 
 ## License
 

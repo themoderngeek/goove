@@ -35,14 +35,14 @@ type artworkMsg struct {
 	err    error
 }
 
-// devicesMsg is the result of a fetchDevices Cmd — populates the picker.
+// devicesMsg is the result of a fetchDevices Cmd — populates the Output panel.
 type devicesMsg struct {
 	devices []domain.AudioDevice
 	err     error
 }
 
-// deviceSetMsg is the result of a SetAirPlayDevice call from inside the picker.
-// On success, the picker closes; on error, the picker stays open and shows the error.
+// deviceSetMsg is the result of a SetAirPlayDevice call from the Output panel.
+// On success the device list is refreshed to pick up the new Selected flag.
 type deviceSetMsg struct {
 	err error
 }
@@ -65,31 +65,35 @@ type playlistTracksMsg struct {
 
 // playPlaylistMsg carries the result of a PlayPlaylist invocation. The
 // existing 1Hz status tick will surface the new now-playing in its next poll;
-// this message is just for surfacing errors in the browser.
+// this message exists only so that errors can be funnelled into the
+// error footer.
 type playPlaylistMsg struct {
 	err error
 }
 
-// searchDebounceMsg fires 250ms after the last keystroke in the search modal.
-// seq is the searchState.seq the tick was scheduled under — handlers drop
-// the message if it doesn't match the current seq (stale).
-type searchDebounceMsg struct {
-	seq uint64
+// playTrackResultMsg carries the result of a PlayTrack call dispatched by
+// the main pane ⏎ in mainPaneSearchResults mode. On error, the bottom error
+// footer surfaces it; on success the next status tick reflects the new
+// now-playing.
+type playTrackResultMsg struct {
+	err error
 }
 
-// searchResultsMsg carries the result of a SearchTracks call. seq + query
-// guard against a result arriving for a query the user has already moved
-// on from.
-type searchResultsMsg struct {
+// playlistTracksDebounceMsg fires 250ms after a Playlists cursor change.
+// seq matches the playlistsPanel.seq at scheduling time; handlers drop the
+// message if it doesn't match the current seq (stale — cursor has moved
+// since this tick was scheduled).
+type playlistTracksDebounceMsg struct {
+	seq  uint64
+	name string
+}
+
+// searchPanelResultsMsg carries the result of a SearchTracks call dispatched
+// by the Search panel's Enter handler. seq + query are used for stale-result
+// rejection when the user has typed/fired again before this one lands.
+type searchPanelResultsMsg struct {
 	seq    uint64
 	query  string
 	result music.SearchResult
 	err    error
-}
-
-// searchPlayedMsg carries the result of a PlayTrack call from inside search.
-// On error, the modal stays open and shows the error footer.
-type searchPlayedMsg struct {
-	seq uint64
-	err error
 }

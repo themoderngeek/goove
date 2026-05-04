@@ -14,9 +14,8 @@ const (
 	progressBarWidth = 20
 	volumeBarWidth   = 10
 	compactThreshold = 50
+	minLayoutHeight  = 22 // below this, the four-zone layout collapses; fall back to compact
 )
-
-const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   /: search   o: output   l: browse   q: quit"
 
 var (
 	titleStyle    = lipgloss.NewStyle().Bold(true)
@@ -32,38 +31,13 @@ func (m Model) View() string {
 	if m.permissionDenied {
 		return renderPermissionDenied()
 	}
-	if m.search != nil {
-		return renderSearch(m.search)
-	}
-	if m.picker != nil {
-		return renderPicker(m.picker)
-	}
-	if m.mode == modeBrowser {
-		return renderBrowser(m)
-	}
 	if m.width > 0 && m.width < compactThreshold {
-		return renderCompact(m)
+		return renderTooNarrow()
 	}
-	switch s := m.state.(type) {
-	case Connected:
-		if m.width >= artLayoutThreshold &&
-			m.art.output != "" &&
-			m.art.key == trackKey(s.Now.Track) {
-			card := renderConnectedCard(s, m.art.output)
-			keybinds := footerStyle.Render(connectedKeybindsText)
-			out := card + "\n" + keybinds
-			if errFooter := m.errFooter(); errFooter != "" {
-				out += "\n" + errFooter
-			}
-			return lipgloss.NewStyle().Margin(0, 2).Render(out)
-		}
-		return renderConnected(s, m.errFooter())
-	case Idle:
-		return renderIdle(s.Volume, m.errFooter())
-	case Disconnected:
-		return renderDisconnected(m.errFooter())
+	if m.height > 0 && m.height < minLayoutHeight {
+		return renderTooNarrow()
 	}
-	return ""
+	return renderLayout(m)
 }
 
 func (m Model) errFooter() string {
@@ -71,53 +45,6 @@ func (m Model) errFooter() string {
 		return ""
 	}
 	return errorStyle.Render("error: " + m.lastError.Error())
-}
-
-// renderConnectedCard returns the rounded-border card box for the Connected state.
-// If art is non-empty, it is composed beside the track-info content INSIDE the
-// card border via lipgloss.JoinHorizontal. If art is empty, the card contains
-// only the track-info content (no leading whitespace, no separator).
-func renderConnectedCard(s Connected, art string) string {
-	pos := s.Now.DisplayedPosition(time.Now())
-	var b strings.Builder
-
-	state := "▶"
-	if !s.Now.IsPlaying {
-		state = "⏸"
-	}
-
-	b.WriteString(titleStyle.Render(state + "  " + s.Now.Track.Title))
-	b.WriteString("\n")
-	b.WriteString(subtitleStyle.Render(s.Now.Track.Artist))
-	b.WriteString("\n")
-	b.WriteString(subtitleStyle.Render(s.Now.Track.Album))
-	b.WriteString("\n\n")
-	b.WriteString(progressBar(pos, s.Now.Duration, progressBarWidth))
-	b.WriteString("   ")
-	b.WriteString(formatDuration(pos))
-	b.WriteString(" / ")
-	b.WriteString(formatDuration(s.Now.Duration))
-	b.WriteString("\n\n")
-	b.WriteString("volume  ")
-	b.WriteString(volumeBar(s.Now.Volume, volumeBarWidth))
-	b.WriteString(fmt.Sprintf("   %d%%", s.Now.Volume))
-
-	content := b.String()
-	if art != "" {
-		content = lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", content)
-	}
-	return cardStyle.Render(content)
-}
-
-func renderConnected(s Connected, footer string) string {
-	card := renderConnectedCard(s, "")
-	keybinds := footerStyle.Render(connectedKeybindsText)
-
-	out := card + "\n" + keybinds
-	if footer != "" {
-		out += "\n" + footer
-	}
-	return out
 }
 
 func progressBar(pos, dur time.Duration, width int) string {
@@ -193,29 +120,6 @@ func renderPermissionDenied() string {
 	return card + "\n" + keybinds
 }
 
-func renderCompact(m Model) string {
-	switch s := m.state.(type) {
-	case Connected:
-		state := "▶"
-		if !s.Now.IsPlaying {
-			state = "⏸"
-		}
-		line := fmt.Sprintf("%s %s — %s   vol %d%%",
-			state, s.Now.Track.Title, s.Now.Track.Artist, s.Now.Volume)
-		footer := footerStyle.Render("space n p +/- q")
-		out := line + "\n" + footer
-		if e := m.errFooter(); e != "" {
-			out += "\n" + e
-		}
-		return out
-	case Idle:
-		return "Music idle.   space:play  q:quit\n"
-	case Disconnected:
-		return "Music not running.   space:launch  q:quit\n"
-	}
-	return ""
-}
-
 // trackKey returns a stable identity for a track for cache-keying purposes.
 // Returns "" for an all-zero Track so cache lookups against "no track loaded"
 // never accidentally match a real entry.
@@ -232,4 +136,56 @@ func (m Model) currentArtKey() string {
 		return trackKey(c.Now.Track)
 	}
 	return ""
+}
+
+// renderLayout composes the four panels + hint bar + (optional) error footer.
+// Used when no modal is open and the terminal is wide enough.
+func renderLayout(m Model) string {
+	width := m.width
+	if width <= 0 {
+		width = 100 // safe default before the first WindowSizeMsg
+	}
+	height := m.height
+	if height <= 0 {
+		height = 30
+	}
+
+	// Geometry: left column ~25% of width, main pane gets the rest.
+	leftWidth := width / 4
+	if leftWidth < 18 {
+		leftWidth = 18
+	}
+	mainWidth := width - leftWidth - 2 // -2: leaves a 2-col right-edge margin
+
+	// Top panel: now-playing, sized to the same total width as the bottom row
+	// (leftWidth + mainWidth = width - 2) so the right edges line up.
+	topWidth := leftWidth + mainWidth
+	now := renderNowPlayingPanel(m, topWidth)
+
+	// Three left-column panels share the remaining vertical space below the
+	// now-playing panel. Equal thirds; the Output panel absorbs the integer-
+	// division remainder so the column reaches the same bottom edge as the
+	// main pane.
+	bottomHeight := height - lipgloss.Height(now) - 2 // -2: 1 row hint bar + 1 row spare
+	panelHeight := bottomHeight / 3
+
+	pl := renderPlaylistsPanel(m, leftWidth, panelHeight)
+	se := renderSearchPanel(m, leftWidth, panelHeight)
+	op := renderOutputPanel(m, leftWidth, bottomHeight-2*panelHeight)
+	leftCol := lipgloss.JoinVertical(lipgloss.Left, pl, se, op)
+
+	mn := renderMainPanel(m, mainWidth, bottomHeight)
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, mn)
+	hint := footerStyle.Render(renderHintBar(m))
+
+	out := lipgloss.JoinVertical(lipgloss.Left, now, body, hint)
+	if errFooter := m.errFooter(); errFooter != "" {
+		out += "\n" + errFooter
+	}
+	return out
+}
+
+func renderTooNarrow() string {
+	return errorStyle.Render("terminal too narrow — make the window wider (≥ 50 cols, ≥ 22 rows)")
 }

@@ -50,7 +50,7 @@ func clearErrorAfter() tea.Cmd {
 const (
 	artWidth           = 20
 	artHeight          = 10
-	artLayoutThreshold = 70  // terminal width below which side-by-side layout is suppressed
+	artLayoutThreshold = 70 // terminal width below which side-by-side layout is suppressed
 )
 
 // fetchArtwork pipelines bytes from the music client through the art renderer.
@@ -68,10 +68,49 @@ func fetchArtwork(client music.Client, renderer art.Renderer, key string) tea.Cm
 }
 
 // fetchDevices runs AirPlayDevices in a goroutine and emits a devicesMsg.
-// Used by the picker on open.
+// Used when the Output panel is focused.
 func fetchDevices(client music.Client) tea.Cmd {
 	return func() tea.Msg {
 		devices, err := client.AirPlayDevices(context.Background())
 		return devicesMsg{devices: devices, err: err}
 	}
+}
+
+// fetchPlaylists returns a Cmd that calls client.Playlists and produces
+// a playlistsMsg.
+func fetchPlaylists(c music.Client) tea.Cmd {
+	return func() tea.Msg {
+		playlists, err := c.Playlists(context.Background())
+		return playlistsMsg{playlists: playlists, err: err}
+	}
+}
+
+// fetchPlaylistTracks returns a Cmd that calls client.PlaylistTracks and
+// produces a playlistTracksMsg.
+func fetchPlaylistTracks(c music.Client, name string) tea.Cmd {
+	return func() tea.Msg {
+		tracks, err := c.PlaylistTracks(context.Background(), name)
+		return playlistTracksMsg{name: name, tracks: tracks, err: err}
+	}
+}
+
+// playPlaylist returns a Cmd that calls client.PlayPlaylist and produces
+// a playPlaylistMsg.
+func playPlaylist(c music.Client, name string, fromIdx int) tea.Cmd {
+	return func() tea.Msg {
+		err := c.PlayPlaylist(context.Background(), name, fromIdx)
+		return playPlaylistMsg{err: err}
+	}
+}
+
+const playlistTracksDebounceDuration = 250 * time.Millisecond
+
+// schedulePlaylistTracksDebounce returns a tea.Tick Cmd that emits a
+// playlistTracksDebounceMsg stamped with the given seq + name after a debounce
+// window. Used by the Playlists panel to coalesce rapid cursor movements into
+// a single track fetch on the playlist the user lands on.
+func schedulePlaylistTracksDebounce(seq uint64, name string) tea.Cmd {
+	return tea.Tick(playlistTracksDebounceDuration, func(time.Time) tea.Msg {
+		return playlistTracksDebounceMsg{seq: seq, name: name}
+	})
 }
