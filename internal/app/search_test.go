@@ -126,15 +126,6 @@ func TestSlash_NoOpWhenPickerOpen(t *testing.T) {
 	}
 }
 
-func TestSlash_NoOpWhenBrowserOpen(t *testing.T) {
-	m, _ := connectedTestModel(t)
-	m.mode = modeBrowser
-	out, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	if out.(Model).search != nil {
-		t.Errorf("search should not open while browser is open")
-	}
-}
-
 func TestEsc_ClosesSearch(t *testing.T) {
 	m, _ := connectedTestModel(t)
 	m.search = &searchState{query: "stair"}

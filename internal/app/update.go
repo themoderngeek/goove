@@ -83,7 +83,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case playlistsMsg:
-		// Phase 2: also populate the persistent panel state.
 		m.playlists.loading = false
 		m.playlists.err = msg.err
 		if msg.err == nil {
@@ -92,42 +91,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.playlists.cursor = 0
 			}
 		}
-		// Existing browser-modal write (Phase 2 still keeps the modal alive):
-		if m.browser != nil {
-			m.browser.loadingLists = false
-			m.browser.err = msg.err
-			if msg.err == nil {
-				m.browser.playlists = msg.playlists
-				if m.browser.playlistCursor >= len(msg.playlists) {
-					m.browser.playlistCursor = 0
-				}
-			}
-		}
 		return m, nil
 
 	case playlistTracksMsg:
-		// Phase 2: populate the persistent track cache.
 		delete(m.playlists.fetchingFor, msg.name)
 		if msg.err != nil {
 			m.playlists.err = msg.err
 		} else {
 			m.playlists.tracksByName[msg.name] = msg.tracks
-		}
-		// Existing browser-modal write (Phase 2 still keeps the modal alive):
-		if m.browser != nil && len(m.browser.playlists) > 0 {
-			current := m.browser.playlists[m.browser.playlistCursor].Name
-			if msg.name != current {
-				// Stale result for the modal — the cursor has moved since this
-				// fetch was issued. Panel cache write above already happened.
-				return m, nil
-			}
-			m.browser.loadingTracks = false
-			m.browser.err = msg.err
-			if msg.err == nil {
-				m.browser.tracks = msg.tracks
-				m.browser.tracksFor = msg.name
-				m.browser.trackCursor = 0
-			}
 		}
 		return m, nil
 
@@ -223,15 +194,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handlePickerKey(msg)
 	}
 
-	if m.mode == modeBrowser {
-		if mm, cmd, handled := handleBrowserKey(m, msg); handled {
-			return mm, cmd
-		}
-		// Fall through to the now-playing key handler for transport keys etc.
-	}
-
 	// Phase 2: focus-routed panel handlers run before globals.
-	if m.search == nil && m.picker == nil && m.mode != modeBrowser {
+	if m.search == nil && m.picker == nil {
 		switch m.focusZ {
 		case focusPlaylists:
 			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
@@ -300,23 +264,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.picker = &pickerState{loading: true}
 		return m, fetchDevices(m.client)
 
-	case "l":
-		// 'l' opens the playlist browser. No-op when already in browser
-		// (spec: 'l' in browser is a no-op; esc returns to now-playing).
-		if m.mode == modeBrowser {
-			return m, nil
-		}
-		m.mode = modeBrowser
-		m.browser = &browserState{loadingLists: true}
-		return m, fetchPlaylists(m.client)
-
 	case "/":
-		// Suppress search in Disconnected, when picker is open, or when in browser.
-		// permissionDenied is already handled at the top of Update.
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		if m.picker != nil || m.mode == modeBrowser {
+		if m.picker != nil {
 			return m, nil
 		}
 		// seq starts at 1 — see Task 15 review notes: a stray playTrack

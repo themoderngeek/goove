@@ -59,35 +59,6 @@ type searchState struct {
 	err     error
 }
 
-type viewMode int
-
-const (
-	modeNowPlaying viewMode = iota
-	modeBrowser
-)
-
-type browserPane int
-
-const (
-	leftPane  browserPane = iota // playlists
-	rightPane                    // tracks of selected playlist
-)
-
-// browserState is the modal browser-view state. nil on Model means "browser
-// not open"; non-nil means "browser is showing." Loading flags suppress
-// duplicate fetches while a Cmd is in flight.
-type browserState struct {
-	pane           browserPane
-	playlists      []domain.Playlist
-	playlistCursor int
-	loadingLists   bool
-	tracks         []domain.Track // tracks of the playlist at playlistCursor
-	tracksFor      string         // name of the playlist tracks were last fetched for
-	trackCursor    int
-	loadingTracks  bool
-	err            error
-}
-
 // playlistsPanel is the state of the Playlists panel (left, top of stack).
 // items is the cached playlist list; cursor is the highlighted row;
 // tracksByName caches per-playlist tracks for live-preview hits.
@@ -167,8 +138,6 @@ type Model struct {
 	art      artState
 	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
 	picker   *pickerState // nil ⇒ picker not open (modal overlay state)
-	mode     viewMode
-	browser  *browserState
 	search   *searchState // nil ⇒ search modal not open
 
 	// New layout state (Phase 1).
