@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -142,5 +143,18 @@ func TestPlaylistTracksMsgPopulatesCache(t *testing.T) {
 	}
 	if len(got.playlists.tracksByName["B"]) != 2 {
 		t.Errorf("tracksByName[B] = %v; want 2 entries", got.playlists.tracksByName["B"])
+	}
+}
+
+func TestPlaylistTracksMsgClearsFetchingForOnError(t *testing.T) {
+	m := newTestModel()
+	m.playlists.fetchingFor["B"] = true
+	updated, _ := m.Update(playlistTracksMsg{name: "B", err: errors.New("boom")})
+	got := updated.(Model)
+	if got.playlists.fetchingFor["B"] {
+		t.Error("fetchingFor[B] must be cleared even on error")
+	}
+	if _, exists := got.playlists.tracksByName["B"]; exists {
+		t.Error("tracksByName must not be written on error")
 	}
 }

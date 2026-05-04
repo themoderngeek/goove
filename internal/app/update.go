@@ -117,6 +117,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.browser != nil && len(m.browser.playlists) > 0 {
 			current := m.browser.playlists[m.browser.playlistCursor].Name
 			if msg.name != current {
+				// Stale result for the modal — the cursor has moved since this
+				// fetch was issued. Panel cache write above already happened.
 				return m, nil
 			}
 			m.browser.loadingTracks = false
