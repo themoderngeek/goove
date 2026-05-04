@@ -21,8 +21,8 @@ func panelBoxWide(title, body string, width, height int, focused bool) string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("#6b7280")).
-		Width(width - 2).
-		Height(height - 2).
+		Width(width-2).
+		Height(height-2).
 		Padding(0, 1)
 	if focused {
 		style = style.BorderForeground(lipgloss.Color("#ebcb8b"))

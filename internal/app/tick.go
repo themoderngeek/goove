@@ -50,7 +50,7 @@ func clearErrorAfter() tea.Cmd {
 const (
 	artWidth           = 20
 	artHeight          = 10
-	artLayoutThreshold = 70  // terminal width below which side-by-side layout is suppressed
+	artLayoutThreshold = 70 // terminal width below which side-by-side layout is suppressed
 )
 
 // fetchArtwork pipelines bytes from the music client through the art renderer.
