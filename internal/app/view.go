@@ -32,6 +32,7 @@ func (m Model) View() string {
 	if m.permissionDenied {
 		return renderPermissionDenied()
 	}
+	// Modals (Phase 1): still render on top of everything when open.
 	if m.search != nil {
 		return renderSearch(m.search)
 	}
@@ -44,26 +45,7 @@ func (m Model) View() string {
 	if m.width > 0 && m.width < compactThreshold {
 		return renderCompact(m)
 	}
-	switch s := m.state.(type) {
-	case Connected:
-		if m.width >= artLayoutThreshold &&
-			m.art.output != "" &&
-			m.art.key == trackKey(s.Now.Track) {
-			card := renderConnectedCard(s, m.art.output)
-			keybinds := footerStyle.Render(connectedKeybindsText)
-			out := card + "\n" + keybinds
-			if errFooter := m.errFooter(); errFooter != "" {
-				out += "\n" + errFooter
-			}
-			return lipgloss.NewStyle().Margin(0, 2).Render(out)
-		}
-		return renderConnected(s, m.errFooter())
-	case Idle:
-		return renderIdle(s.Volume, m.errFooter())
-	case Disconnected:
-		return renderDisconnected(m.errFooter())
-	}
-	return ""
+	return renderLayout(m)
 }
 
 func (m Model) errFooter() string {
@@ -232,4 +214,48 @@ func (m Model) currentArtKey() string {
 		return trackKey(c.Now.Track)
 	}
 	return ""
+}
+
+// renderLayout composes the four panels + hint bar + (optional) error footer.
+// Used when no modal is open and the terminal is wide enough.
+func renderLayout(m Model) string {
+	width := m.width
+	if width <= 0 {
+		width = 100 // safe default before the first WindowSizeMsg
+	}
+	height := m.height
+	if height <= 0 {
+		height = 30
+	}
+
+	// Top panel: now-playing, full width.
+	now := renderNowPlayingPanel(m)
+
+	// Geometry: left column ~25% of width, main pane gets the rest.
+	leftWidth := width / 4
+	if leftWidth < 18 {
+		leftWidth = 18
+	}
+	mainWidth := width - leftWidth - 2
+
+	// Three left-column panels share the remaining vertical space below the
+	// now-playing panel. We give equal heights for v1.
+	bottomHeight := height - lipgloss.Height(now) - 2
+	panelHeight := bottomHeight / 3
+
+	pl := renderPlaylistsPanel(m, leftWidth, panelHeight)
+	se := renderSearchPanel(m, leftWidth, panelHeight)
+	op := renderOutputPanel(m, leftWidth, panelHeight)
+	leftCol := lipgloss.JoinVertical(lipgloss.Left, pl, se, op)
+
+	mn := renderMainPanel(m, mainWidth, bottomHeight)
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, mn)
+	hint := footerStyle.Render(renderHintBar(m))
+
+	out := lipgloss.JoinVertical(lipgloss.Left, now, body, hint)
+	if errFooter := m.errFooter(); errFooter != "" {
+		out += "\n" + errFooter
+	}
+	return out
 }
