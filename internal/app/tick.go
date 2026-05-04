@@ -102,3 +102,15 @@ func playPlaylist(c music.Client, name string, fromIdx int) tea.Cmd {
 		return playPlaylistMsg{err: err}
 	}
 }
+
+const playlistTracksDebounceDuration = 250 * time.Millisecond
+
+// schedulePlaylistTracksDebounce returns a tea.Tick Cmd that emits a
+// playlistTracksDebounceMsg stamped with the given seq + name after a debounce
+// window. Used by the Playlists panel to coalesce rapid cursor movements into
+// a single track fetch on the playlist the user lands on.
+func schedulePlaylistTracksDebounce(seq uint64, name string) tea.Cmd {
+	return tea.Tick(playlistTracksDebounceDuration, func(time.Time) tea.Msg {
+		return playlistTracksDebounceMsg{seq: seq, name: name}
+	})
+}

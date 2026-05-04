@@ -94,3 +94,12 @@ type searchPlayedMsg struct {
 	seq uint64
 	err error
 }
+
+// playlistTracksDebounceMsg fires 250ms after a Playlists cursor change.
+// seq matches the playlistsPanel.seq at scheduling time; handlers drop the
+// message if it doesn't match the current seq (stale — cursor has moved
+// since this tick was scheduled).
+type playlistTracksDebounceMsg struct {
+	seq  uint64
+	name string
+}

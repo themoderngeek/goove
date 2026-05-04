@@ -93,6 +93,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case playlistTracksDebounceMsg:
+		// Stale: cursor has moved since this tick was scheduled.
+		if msg.seq != m.playlists.seq {
+			return m, nil
+		}
+		// Raced: a previous tick's result already populated the cache.
+		if _, cached := m.playlists.tracksByName[msg.name]; cached {
+			return m, nil
+		}
+		// Already in flight (paranoia — shouldn't happen because seq guards
+		// concurrent debounces).
+		if m.playlists.fetchingFor[msg.name] {
+			return m, nil
+		}
+		m.playlists.fetchingFor[msg.name] = true
+		return m, fetchPlaylistTracks(m.client, msg.name)
+
 	case playlistTracksMsg:
 		delete(m.playlists.fetchingFor, msg.name)
 		if msg.err != nil {

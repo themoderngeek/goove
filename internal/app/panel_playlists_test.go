@@ -93,21 +93,28 @@ func TestPlaylistsCursorMovePreservesSearchResultsMode(t *testing.T) {
 	}
 }
 
-func TestPlaylistsCursorChangeFiresTrackFetchOnFirstSelection(t *testing.T) {
+func TestPlaylistsCursorChangeSchedulesDebounceTick(t *testing.T) {
 	m := newTestModel()
 	m.focusZ = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	got := updated.(Model)
 	if cmd == nil {
-		t.Fatal("expected fetchPlaylistTracks Cmd on first selection of B")
+		t.Fatal("expected debounce Cmd on first selection of B")
 	}
-	if !got.playlists.fetchingFor["B"] {
-		t.Errorf("expected fetchingFor[B] = true")
+	if got.playlists.seq != 1 {
+		t.Errorf("seq after first cursor change = %d; want 1", got.playlists.seq)
+	}
+	if got.playlists.fetchingFor["B"] {
+		t.Errorf("fetchingFor[B] should NOT be set yet (debounce not fired)")
 	}
 	out := cmd()
-	if _, ok := out.(playlistTracksMsg); !ok {
-		t.Fatalf("cmd produced %T; want playlistTracksMsg", out)
+	msg, ok := out.(playlistTracksDebounceMsg)
+	if !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksDebounceMsg", out)
+	}
+	if msg.seq != 1 || msg.name != "B" {
+		t.Errorf("debounce msg = %+v; want seq=1 name=B", msg)
 	}
 }
 
@@ -205,5 +212,49 @@ func TestPlaylistsEnterIsNoOpWhenEmpty(t *testing.T) {
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd with empty list, got %T", cmd())
+	}
+}
+
+func TestPlaylistTracksDebounceMsgFiresFetchWhenCurrent(t *testing.T) {
+	m := newTestModel()
+	m.playlists.seq = 5
+	updated, cmd := m.Update(playlistTracksDebounceMsg{seq: 5, name: "B"})
+	got := updated.(Model)
+	if !got.playlists.fetchingFor["B"] {
+		t.Errorf("expected fetchingFor[B] = true after debounce fires")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylistTracks Cmd")
+	}
+	out := cmd()
+	if _, ok := out.(playlistTracksMsg); !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksMsg", out)
+	}
+}
+
+func TestPlaylistTracksDebounceMsgDroppedWhenStale(t *testing.T) {
+	m := newTestModel()
+	m.playlists.seq = 5
+	updated, cmd := m.Update(playlistTracksDebounceMsg{seq: 4, name: "old"})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Errorf("expected no Cmd for stale seq, got %T", cmd())
+	}
+	if got.playlists.fetchingFor["old"] {
+		t.Errorf("stale debounce should not set fetchingFor")
+	}
+}
+
+func TestPlaylistTracksDebounceMsgNoOpWhenCached(t *testing.T) {
+	m := newTestModel()
+	m.playlists.seq = 5
+	m.playlists.tracksByName["B"] = []domain.Track{{Title: "t1"}}
+	updated, cmd := m.Update(playlistTracksDebounceMsg{seq: 5, name: "B"})
+	got := updated.(Model)
+	if cmd != nil {
+		t.Errorf("expected no Cmd when cached, got %T", cmd())
+	}
+	if got.playlists.fetchingFor["B"] {
+		t.Errorf("fetchingFor[B] should not be set when cache hit")
 	}
 }

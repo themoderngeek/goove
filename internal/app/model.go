@@ -69,6 +69,7 @@ type playlistsPanel struct {
 	err          error
 	tracksByName map[string][]domain.Track
 	fetchingFor  map[string]bool
+	seq          uint64 // bumped on every cursor change; debounce drops stale ticks
 }
 
 // searchPanel is the state of the Search panel (left, middle of stack).

@@ -99,8 +99,9 @@ func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 // they dismiss them (Esc in main pane, Task 21). selectedPlaylist still
 // updates so that Esc lands on the currently-cursor'd playlist's tracks.
 //
-// On first preview of a playlist, fires fetchPlaylistTracks. Cached and
-// in-flight selections return nil Cmd.
+// On first preview of a playlist, schedules a debounce tick. Rapid cursor
+// movements bump seq; only the most recent tick's fetch survives. Cached and
+// in-flight selections short-circuit before scheduling.
 func onPlaylistsCursorChanged(m Model) (Model, tea.Cmd) {
 	if len(m.playlists.items) == 0 {
 		return m, nil
@@ -117,8 +118,8 @@ func onPlaylistsCursorChanged(m Model) (Model, tea.Cmd) {
 	if m.playlists.fetchingFor[name] {
 		return m, nil
 	}
-	m.playlists.fetchingFor[name] = true
-	return m, fetchPlaylistTracks(m.client, name)
+	m.playlists.seq++
+	return m, schedulePlaylistTracksDebounce(m.playlists.seq, name)
 }
 
 // panelBox is the shared lipgloss box used by every left-column panel.
