@@ -450,3 +450,29 @@ for the next time someone (probably future-Mark) asks the same question.
 - [`mediaremote-adapter` — workaround for the macOS 15.4 lockdown](https://github.com/ungive/mediaremote-adapter)
 - [`nowplaying-cli` — canonical MediaRemote consumer](https://github.com/kirtan-shah/nowplaying-cli)
 - [Public-API request for now-playing info (Apple Feedback Assistant report 637)](https://github.com/feedback-assistant/reports/issues/637)
+
+## 14. Status — shelved (2026-05-04)
+
+After reviewing this document, the decision is to **shelve the work**.
+No path is being pursued at this time. AppleScript continues to be the
+sole backend.
+
+This is not a rejection of the analysis — the supplemental path in §10
+remains the recommended approach if and when goove revisits this. The
+shelving reflects current priorities, not a change in conclusion.
+
+**Triggers that should prompt re-opening this doc:**
+
+- AppleScript's Music.app interface degrades materially (a feature stops
+  working, a method gets removed, performance regresses) — re-evaluate
+  the full-swap path in §6.
+- Catalog search becomes the most-asked-for feature — re-evaluate the
+  supplemental path in §7.
+- goove gains a wider user base such that a signed-release pipeline is
+  justified independently of MusicKit — that removes one of the larger
+  costs and shifts the cost / benefit.
+- macOS deprecates AppleScript's Music.app dictionary outright —
+  treat as an emergency re-evaluation.
+
+If none of those happen, this document can stay where it is as a
+reference for the next time the question comes up.
