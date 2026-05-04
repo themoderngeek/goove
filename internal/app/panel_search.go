@@ -1,13 +1,33 @@
 package app
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func renderSearchPanel(m Model, width, height int) string {
 	title := "Search"
-	body := subtitleStyle.Render("/  type to search")
+	body := renderSearchBody(m)
 	return panelBox(title, body, width, height, m.focusZ == focusSearch)
+}
+
+func renderSearchBody(m Model) string {
+	switch {
+	case m.search2.inputMode && m.search2.loading:
+		return titleStyle.Render("/"+m.search2.query) + "\n" + subtitleStyle.Render("searching…")
+	case m.search2.inputMode:
+		// Caret at end of query.
+		return titleStyle.Render("/" + m.search2.query + "_")
+	case m.search2.lastQuery != "":
+		hits := fmt.Sprintf("%d results", m.search2.total)
+		if m.search2.total > len(m.main.searchResults) {
+			hits = fmt.Sprintf("%d of %d", len(m.main.searchResults), m.search2.total)
+		}
+		return titleStyle.Render("/"+m.search2.lastQuery) + "\n" + subtitleStyle.Render(hits)
+	default:
+		return subtitleStyle.Render("/  type to search")
+	}
 }
 
 // handleSearchPanelKey routes keys when focusZ == focusSearch. Returns
