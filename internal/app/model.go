@@ -133,6 +133,10 @@ func New(client music.Client, renderer art.Renderer) Model {
 			tracksByName:   make(map[string][]domain.Track),
 			fetchingFor:    make(map[string]bool),
 			trackErrByName: make(map[string]error),
+			loading:        true,
+		},
+		output: outputPanel{
+			loading: true,
 		},
 	}
 }

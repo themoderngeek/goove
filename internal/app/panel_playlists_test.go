@@ -299,3 +299,11 @@ func TestPlaylistTracksDebounceMsgClearsPriorErrorOnRetry(t *testing.T) {
 		t.Error("fetchingFor[B] must be set when retry fires")
 	}
 }
+
+func TestNewInitialisesPlaylistsPanelLoading(t *testing.T) {
+	c := fake.New()
+	m := New(c, nil)
+	if !m.playlists.loading {
+		t.Error("expected playlists.loading = true after New so first frame shows 'loading…' instead of an empty panel")
+	}
+}

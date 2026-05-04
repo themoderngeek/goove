@@ -486,6 +486,7 @@ func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
+	m.output.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
 	tmp, _ := m.Update(statusMsg{now: np})
 	m = tmp.(Model)
@@ -559,6 +560,7 @@ func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	m := New(c, nil)
+	m.playlists.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	// focus starts at focusPlaylists by default; we force a transition to
 	// trigger the on-focus fetch.
 	m.focus = focusSearch
