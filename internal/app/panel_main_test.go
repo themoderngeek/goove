@@ -1,10 +1,14 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/themoderngeek/goove/internal/domain"
+	"github.com/themoderngeek/goove/internal/music/fake"
 )
 
 func TestMainPaneShowsLoadingWhenSelectionUncached(t *testing.T) {
@@ -40,5 +44,71 @@ func TestMainPaneShowsHintWhenNothingSelected(t *testing.T) {
 	got := renderMainPanel(m, 60, 30)
 	if !strings.Contains(got, "focus") && !strings.Contains(got, "—") {
 		t.Errorf("main pane hint missing: %q", got)
+	}
+}
+
+func TestMainTracksCursorDownMoves(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusMain
+	m.main.mode = mainPaneTracks
+	m.main.selectedPlaylist = "A"
+	m.playlists.tracksByName["A"] = []domain.Track{{Title: "t1"}, {Title: "t2"}}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	got := updated.(Model)
+	if got.main.cursor != 1 {
+		t.Errorf("main.cursor = %d; want 1", got.main.cursor)
+	}
+}
+
+func TestMainTracksCursorClampsAtEnd(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusMain
+	m.main.mode = mainPaneTracks
+	m.main.selectedPlaylist = "A"
+	m.main.cursor = 1
+	m.playlists.tracksByName["A"] = []domain.Track{{Title: "t1"}, {Title: "t2"}}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	got := updated.(Model)
+	if got.main.cursor != 1 {
+		t.Errorf("main.cursor = %d; want 1 (clamped)", got.main.cursor)
+	}
+}
+
+func TestMainTracksEnterPlaysFromCursor(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "A"}})
+	m := New(c, nil)
+	m.focusZ = focusMain
+	m.main.mode = mainPaneTracks
+	m.main.selectedPlaylist = "A"
+	m.main.cursor = 2
+	m.playlists.tracksByName["A"] = []domain.Track{
+		{Title: "t1"}, {Title: "t2"}, {Title: "t3"}, {Title: "t4"},
+	}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected playPlaylist Cmd")
+	}
+	cmd()
+	rec := c.PlayPlaylistRecord()
+	if len(rec) != 1 {
+		t.Fatalf("PlayPlaylistRecord len = %d; want 1", len(rec))
+	}
+	if rec[0].FromIdx != 2 {
+		t.Errorf("FromIdx = %d; want 2", rec[0].FromIdx)
+	}
+	if rec[0].Name != "A" {
+		t.Errorf("Name = %q; want A", rec[0].Name)
+	}
+}
+
+func TestMainTracksEnterIsNoOpWhenEmpty(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusMain
+	m.main.mode = mainPaneTracks
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("expected no Cmd with empty selection, got %T", cmd())
 	}
 }

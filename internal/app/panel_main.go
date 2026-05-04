@@ -1,12 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/themoderngeek/goove/internal/domain"
+	"github.com/themoderngeek/goove/internal/music"
 )
 
 func renderMainPanel(m Model, width, height int) string {
@@ -119,4 +122,57 @@ func panelBoxWide(title, body string, width, height int, focused bool) string {
 	}
 	header := titleStyle.Render(title)
 	return style.Render(header + "\n" + strings.TrimRight(body, "\n"))
+}
+
+// handleMainKey routes keys when focusZ == focusMain.
+func handleMainKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
+	tracks := mainPaneRows(m)
+	switch msg.String() {
+	case "up", "k":
+		if m.main.cursor > 0 {
+			m.main.cursor--
+		}
+		return m, nil, true
+	case "down", "j":
+		if m.main.cursor < len(tracks)-1 {
+			m.main.cursor++
+		}
+		return m, nil, true
+	case "enter":
+		if len(tracks) == 0 {
+			return m, nil, true
+		}
+		switch m.main.mode {
+		case mainPaneTracks:
+			if m.main.selectedPlaylist == "" {
+				return m, nil, true
+			}
+			return m, playPlaylist(m.client, m.main.selectedPlaylist, m.main.cursor), true
+		case mainPaneSearchResults:
+			pid := tracks[m.main.cursor].PersistentID
+			return m, playTrack(m.client, pid), true
+		}
+	}
+	return m, nil, false
+}
+
+// mainPaneRows returns whichever slice is currently visible in the main pane.
+func mainPaneRows(m Model) []domain.Track {
+	switch m.main.mode {
+	case mainPaneSearchResults:
+		return m.main.searchResults
+	default:
+		if m.main.selectedPlaylist == "" {
+			return nil
+		}
+		return m.playlists.tracksByName[m.main.selectedPlaylist]
+	}
+}
+
+// playTrack is the Cmd used when ⏎ is pressed on a search result. Reuses
+// client.PlayTrack — same call the search modal already made.
+func playTrack(c music.Client, persistentID string) tea.Cmd {
+	return func() tea.Msg {
+		return searchPlayedMsg{err: c.PlayTrack(context.Background(), persistentID)}
+	}
 }

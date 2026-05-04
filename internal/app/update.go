@@ -153,14 +153,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case searchPlayedMsg:
-		if m.search == nil || msg.seq != m.search.seq {
+		if m.search != nil {
+			if msg.seq != m.search.seq {
+				return m, nil
+			}
+			if msg.err != nil {
+				m.search.err = msg.err
+				return m, nil
+			}
+			m.search = nil
 			return m, nil
 		}
+		// Phase 2: result from the new main-pane enter.
 		if msg.err != nil {
-			m.search.err = msg.err
-			return m, nil
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
 		}
-		m.search = nil
 		return m, nil
 	}
 	return m, nil
@@ -226,6 +235,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		switch m.focusZ {
 		case focusPlaylists:
 			if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
+				return mm, cmd
+			}
+		case focusMain:
+			if mm, cmd, handled := handleMainKey(m, msg); handled {
 				return mm, cmd
 			}
 		}
