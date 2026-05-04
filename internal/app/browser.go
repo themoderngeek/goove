@@ -74,6 +74,10 @@ func handleBrowserKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	case "l":
 		// Already in browser; spec says no-op (don't toggle).
 		return m, nil, true
+	case "1", "2", "3", "4":
+		// Browser doesn't use number keys; suppress so the new focus-cycle
+		// cases in the outer handleKey don't fire underneath the overlay.
+		return m, nil, true
 	}
 	// Not a browser-specific key — let the now-playing handler take it.
 	return m, nil, false

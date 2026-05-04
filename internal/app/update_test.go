@@ -1304,3 +1304,14 @@ func TestFocusKeysSuppressedWhileSearchModalOpen(t *testing.T) {
 		t.Errorf("focusZ after '2' while search modal open = %v; want focusPlaylists (no change)", got.focusZ)
 	}
 }
+
+func TestFocusKeysSuppressedWhileBrowserOpen(t *testing.T) {
+	m := newTestModel()
+	m.mode = modeBrowser
+	m.browser = &browserState{}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	got := updated.(Model)
+	if got.focusZ != focusPlaylists {
+		t.Errorf("focusZ after '2' while browser open = %v; want focusPlaylists (no change)", got.focusZ)
+	}
+}
