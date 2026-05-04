@@ -6,7 +6,7 @@ import "strings"
 const globalKeysHint = "space:play/pause  n:next  p:prev  +/-:vol  q:quit"
 
 // renderHintBar returns the bottom-of-screen hint string. Always includes
-// the global keys; appends panel-scoped hints based on m.focusZ. Style is
+// the global keys; appends panel-scoped hints based on m.focus. Style is
 // applied by view.go (footerStyle.Render).
 func renderHintBar(m Model) string {
 	var sb strings.Builder
@@ -20,11 +20,11 @@ func renderHintBar(m Model) string {
 // it can be tested in isolation and so future overflow-handling can drop it
 // at narrow widths.
 func panelHint(m Model) string {
-	switch m.focusZ {
+	switch m.focus {
 	case focusPlaylists:
 		return "j/k:nav  ⏎:play"
 	case focusSearch:
-		if m.search2.inputMode {
+		if m.search.inputMode {
 			return "⏎:run  esc:clear"
 		}
 		return "type to search"

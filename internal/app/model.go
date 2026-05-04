@@ -115,9 +115,9 @@ type Model struct {
 	renderer art.Renderer // nil ⇒ chafa unavailable; track-change detection skips fetches
 
 	// New layout state (Phase 1).
-	focusZ    focus
+	focus     focusKind
 	playlists playlistsPanel
-	search2   searchPanel // temp name; renamed to `search` in Phase 6 after the modal type is retired
+	search    searchPanel
 	output    outputPanel
 	main      mainPanel
 }

@@ -492,8 +492,8 @@ func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-	if got.focusZ != focusOutput {
-		t.Errorf("focusZ = %v; want focusOutput", got.focusZ)
+	if got.focus != focusOutput {
+		t.Errorf("focusZ = %v; want focusOutput", got.focus)
 	}
 	if cmd == nil {
 		t.Fatal("expected fetchDevices Cmd")
@@ -505,11 +505,11 @@ func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 
 func TestOKeyIsNoOpInDisconnected(t *testing.T) {
 	m := newTestModel() // starts in Disconnected
-	before := m.focusZ
+	before := m.focus
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 	got := updated.(Model)
-	if got.focusZ != before {
-		t.Errorf("focusZ changed to %v; want no change (suppressed in Disconnected)", got.focusZ)
+	if got.focus != before {
+		t.Errorf("focusZ changed to %v; want no change (suppressed in Disconnected)", got.focus)
 	}
 	if cmd != nil {
 		t.Errorf("expected no Cmd in Disconnected, got %T", cmd)
@@ -520,25 +520,25 @@ func TestTabAdvancesFocusFromPlaylistsToSearch(t *testing.T) {
 	m := newTestModel()
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	got := updated.(Model)
-	if got.focusZ != focusSearch {
-		t.Errorf("focusZ after Tab = %v; want focusSearch", got.focusZ)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ after Tab = %v; want focusSearch", got.focus)
 	}
 }
 
 func TestShiftTabReversesFocus(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusOutput
+	m.focus = focusOutput
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
 	got := updated.(Model)
-	if got.focusZ != focusSearch {
-		t.Errorf("focusZ after Shift-Tab from Output = %v; want focusSearch", got.focusZ)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ after Shift-Tab from Output = %v; want focusSearch", got.focus)
 	}
 }
 
 func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 	tests := []struct {
 		key  rune
-		want focus
+		want focusKind
 	}{
 		{'1', focusPlaylists},
 		{'2', focusSearch},
@@ -549,8 +549,8 @@ func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 		m := newTestModel()
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{tt.key}})
 		got := updated.(Model)
-		if got.focusZ != tt.want {
-			t.Errorf("focusZ after '%c' = %v; want %v", tt.key, got.focusZ, tt.want)
+		if got.focus != tt.want {
+			t.Errorf("focusZ after '%c' = %v; want %v", tt.key, got.focus, tt.want)
 		}
 	}
 }
@@ -559,13 +559,13 @@ func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
 	c.Launch(nil)
 	m := New(c, nil)
-	// focusZ starts at focusPlaylists by default; we force a transition to
+	// focus starts at focusPlaylists by default; we force a transition to
 	// trigger the on-focus fetch.
-	m.focusZ = focusSearch
+	m.focus = focusSearch
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
 	got := updated.(Model)
-	if got.focusZ != focusPlaylists {
-		t.Fatalf("focusZ = %v; want focusPlaylists", got.focusZ)
+	if got.focus != focusPlaylists {
+		t.Fatalf("focusZ = %v; want focusPlaylists", got.focus)
 	}
 	if cmd == nil {
 		t.Fatal("expected fetchPlaylists Cmd on focus")
@@ -579,7 +579,7 @@ func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 func TestFocusingPlaylistsDoesNotRefetchWhenCached(t *testing.T) {
 	m := newTestModel()
 	m.playlists.items = []domain.Playlist{{Name: "Liked Songs"}}
-	m.focusZ = focusSearch
+	m.focus = focusSearch
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
 	if cmd != nil {
 		t.Errorf("expected no Cmd when playlists already cached, got %T", cmd())
@@ -647,10 +647,10 @@ func TestSlashKeyFocusesSearchAndEntersInputMode(t *testing.T) {
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	got := updated.(Model)
-	if got.focusZ != focusSearch {
-		t.Errorf("focusZ = %v; want focusSearch", got.focusZ)
+	if got.focus != focusSearch {
+		t.Errorf("focusZ = %v; want focusSearch", got.focus)
 	}
-	if !got.search2.inputMode {
+	if !got.search.inputMode {
 		t.Error("expected inputMode true")
 	}
 }
@@ -659,7 +659,7 @@ func TestSlashIsNoOpInDisconnected(t *testing.T) {
 	m := newTestModel() // starts in Disconnected
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	got := updated.(Model)
-	if got.focusZ != focusPlaylists {
-		t.Errorf("focusZ = %v; want focusPlaylists (no change in Disconnected)", got.focusZ)
+	if got.focus != focusPlaylists {
+		t.Errorf("focusZ = %v; want focusPlaylists (no change in Disconnected)", got.focus)
 	}
 }

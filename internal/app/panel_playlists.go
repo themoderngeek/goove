@@ -11,7 +11,7 @@ import (
 func renderPlaylistsPanel(m Model, width, height int) string {
 	title := "Playlists"
 	body := renderPlaylistsBody(m, width, height)
-	return panelBox(title, body, width, height, m.focusZ == focusPlaylists)
+	return panelBox(title, body, width, height, m.focus == focusPlaylists)
 }
 
 func renderPlaylistsBody(m Model, width, height int) string {
@@ -30,7 +30,7 @@ func renderPlaylistsBody(m Model, width, height int) string {
 	var sb strings.Builder
 	for i := start; i < len(m.playlists.items) && i-start < visibleRows; i++ {
 		marker := "  "
-		if i == m.playlists.cursor && m.focusZ == focusPlaylists {
+		if i == m.playlists.cursor && m.focus == focusPlaylists {
 			marker = "▶ "
 		}
 		row := marker + m.playlists.items[i].Name
@@ -53,7 +53,7 @@ func onFocusPlaylists(m Model) (Model, tea.Cmd) {
 	return m, fetchPlaylists(m.client)
 }
 
-// handlePlaylistsKey routes keys when focusZ == focusPlaylists. Returns
+// handlePlaylistsKey routes keys when focus == focusPlaylists. Returns
 // (model, cmd, handled). When handled is false, the caller falls through to
 // globals.
 //

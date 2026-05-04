@@ -1,12 +1,12 @@
 package app
 
-// focus identifies which panel currently owns keyboard input. Only the four
+// focusKind identifies which panel currently owns keyboard input. Only the four
 // focusable panels are listed; the now-playing panel at the top is read-only
 // and is skipped by tab order.
-type focus int
+type focusKind int
 
 const (
-	focusPlaylists focus = iota
+	focusPlaylists focusKind = iota
 	focusSearch
 	focusOutput
 	focusMain
@@ -17,11 +17,11 @@ const (
 const numFocusPanels = 4
 
 // nextFocus cycles forward through Playlists → Search → Output → Main → Playlists.
-func nextFocus(f focus) focus {
+func nextFocus(f focusKind) focusKind {
 	return (f + 1) % numFocusPanels
 }
 
 // prevFocus cycles backward through Main → Output → Search → Playlists → Main.
-func prevFocus(f focus) focus {
+func prevFocus(f focusKind) focusKind {
 	return (f + numFocusPanels - 1) % numFocusPanels
 }

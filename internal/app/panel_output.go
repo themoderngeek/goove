@@ -10,7 +10,7 @@ import (
 func renderOutputPanel(m Model, width, height int) string {
 	title := "Output"
 	body := renderOutputBody(m, width, height)
-	return panelBox(title, body, width, height, m.focusZ == focusOutput)
+	return panelBox(title, body, width, height, m.focus == focusOutput)
 }
 
 func renderOutputBody(m Model, width, height int) string {
@@ -29,7 +29,7 @@ func renderOutputBody(m Model, width, height int) string {
 	var sb strings.Builder
 	for i := start; i < len(m.output.devices) && i-start < visibleRows; i++ {
 		marker := "  "
-		if i == m.output.cursor && m.focusZ == focusOutput {
+		if i == m.output.cursor && m.focus == focusOutput {
 			marker = "▶ "
 		} else if m.output.devices[i].Selected {
 			marker = "● "

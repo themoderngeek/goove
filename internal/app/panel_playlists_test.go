@@ -13,7 +13,7 @@ import (
 
 func TestPlaylistsCursorDownMoves(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}, {Name: "C"}}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	got := updated.(Model)
@@ -24,7 +24,7 @@ func TestPlaylistsCursorDownMoves(t *testing.T) {
 
 func TestPlaylistsCursorUpClampsAtZero(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	got := updated.(Model)
@@ -35,7 +35,7 @@ func TestPlaylistsCursorUpClampsAtZero(t *testing.T) {
 
 func TestPlaylistsCursorDownClampsAtEnd(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	m.playlists.cursor = 1
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -47,7 +47,7 @@ func TestPlaylistsCursorDownClampsAtEnd(t *testing.T) {
 
 func TestPlaylistsCursorMoveUpdatesMainSelectedPlaylist(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	m.main.selectedPlaylist = "A"
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -62,7 +62,7 @@ func TestPlaylistsCursorMoveUpdatesMainSelectedPlaylist(t *testing.T) {
 
 func TestPlaylistsArrowsAlsoNavigate(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	got := updated.(Model)
@@ -73,7 +73,7 @@ func TestPlaylistsArrowsAlsoNavigate(t *testing.T) {
 
 func TestPlaylistsCursorMovePreservesSearchResultsMode(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	// Simulate a fired search whose results are in main.
 	m.main.mode = mainPaneSearchResults
@@ -95,7 +95,7 @@ func TestPlaylistsCursorMovePreservesSearchResultsMode(t *testing.T) {
 
 func TestPlaylistsCursorChangeSchedulesDebounceTick(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	got := updated.(Model)
@@ -120,7 +120,7 @@ func TestPlaylistsCursorChangeSchedulesDebounceTick(t *testing.T) {
 
 func TestPlaylistsCursorChangeUsesCacheOnRevisit(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	m.playlists.tracksByName["B"] = []domain.Track{{Title: "t1"}}
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -132,7 +132,7 @@ func TestPlaylistsCursorChangeUsesCacheOnRevisit(t *testing.T) {
 
 func TestPlaylistsCursorChangeNoDuplicateFetch(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	m.playlists.fetchingFor["B"] = true
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -173,7 +173,7 @@ func TestPlaylistsEnterPlaysHighlightedPlaylistFromTrackZero(t *testing.T) {
 	c.Launch(context.Background())
 	c.SetPlaylists([]domain.Playlist{{Name: "A"}, {Name: "B"}})
 	m := New(c, nil)
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
 	m.playlists.cursor = 1
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -208,7 +208,7 @@ func TestPlaylistsEnterPlaysHighlightedPlaylistFromTrackZero(t *testing.T) {
 
 func TestPlaylistsEnterIsNoOpWhenEmpty(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd with empty list, got %T", cmd())

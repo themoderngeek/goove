@@ -15,11 +15,11 @@ func TestFocusingOutputFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
 	c.Launch(context.Background())
 	m := New(c, nil)
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
 	got := updated.(Model)
-	if got.focusZ != focusOutput {
-		t.Fatalf("focusZ = %v; want focusOutput", got.focusZ)
+	if got.focus != focusOutput {
+		t.Fatalf("focusZ = %v; want focusOutput", got.focus)
 	}
 	if cmd == nil {
 		t.Fatal("expected fetchDevices Cmd")
@@ -32,7 +32,7 @@ func TestFocusingOutputFiresFetchWhenEmpty(t *testing.T) {
 func TestFocusingOutputDoesNotRefetchWhenCached(t *testing.T) {
 	m := newTestModel()
 	m.output.devices = []domain.AudioDevice{{Name: "MacBook"}}
-	m.focusZ = focusPlaylists
+	m.focus = focusPlaylists
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
 	if cmd != nil {
 		t.Errorf("expected no Cmd when devices cached, got %T", cmd())
@@ -56,7 +56,7 @@ func TestDevicesMsgPopulatesOutputPanel(t *testing.T) {
 
 func TestOutputCursorMovesWithJK(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusOutput
+	m.focus = focusOutput
 	m.output.devices = []domain.AudioDevice{{Name: "A"}, {Name: "B"}}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	got := updated.(Model)
@@ -73,7 +73,7 @@ func TestOutputEnterFiresSetAirPlayDevice(t *testing.T) {
 		{Name: "Sonos"},
 	})
 	m := New(c, nil)
-	m.focusZ = focusOutput
+	m.focus = focusOutput
 	m.output.devices = []domain.AudioDevice{
 		{Name: "MacBook", Selected: true},
 		{Name: "Sonos"},
@@ -110,7 +110,7 @@ func TestOutputEnterFiresSetAirPlayDevice(t *testing.T) {
 
 func TestOutputEnterIsNoOpWhenEmpty(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusOutput
+	m.focus = focusOutput
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd with empty device list, got %T", cmd())

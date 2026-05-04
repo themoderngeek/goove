@@ -50,7 +50,7 @@ func TestMainPaneShowsHintWhenNothingSelected(t *testing.T) {
 
 func TestMainTracksCursorDownMoves(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneTracks
 	m.main.selectedPlaylist = "A"
 	m.playlists.tracksByName["A"] = []domain.Track{{Title: "t1"}, {Title: "t2"}}
@@ -63,7 +63,7 @@ func TestMainTracksCursorDownMoves(t *testing.T) {
 
 func TestMainTracksCursorClampsAtEnd(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneTracks
 	m.main.selectedPlaylist = "A"
 	m.main.cursor = 1
@@ -80,7 +80,7 @@ func TestMainTracksEnterPlaysFromCursor(t *testing.T) {
 	c.Launch(context.Background())
 	c.SetPlaylists([]domain.Playlist{{Name: "A"}})
 	m := New(c, nil)
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneTracks
 	m.main.selectedPlaylist = "A"
 	m.main.cursor = 2
@@ -106,7 +106,7 @@ func TestMainTracksEnterPlaysFromCursor(t *testing.T) {
 
 func TestMainTracksEnterIsNoOpWhenEmpty(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneTracks
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
@@ -116,7 +116,7 @@ func TestMainTracksEnterIsNoOpWhenEmpty(t *testing.T) {
 
 func TestMainPaneEscReturnsToTracksFromSearchResults(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneSearchResults
 	m.main.searchResults = []domain.Track{{Title: "x"}}
 	m.main.cursor = 0
@@ -132,7 +132,7 @@ func TestMainPaneEscReturnsToTracksFromSearchResults(t *testing.T) {
 
 func TestMainPaneEscInTracksModeIsNoOp(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusMain
+	m.focus = focusMain
 	m.main.mode = mainPaneTracks
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	got := updated.(Model)

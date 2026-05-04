@@ -14,82 +14,82 @@ import (
 
 func TestSearchPanelTypingEntersInputModeAndAppendsQuery(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
+	m.focus = focusSearch
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
 	got := updated.(Model)
-	if !got.search2.inputMode {
+	if !got.search.inputMode {
 		t.Error("expected inputMode true after typing")
 	}
-	if got.search2.query != "l" {
-		t.Errorf("query = %q; want %q", got.search2.query, "l")
+	if got.search.query != "l" {
+		t.Errorf("query = %q; want %q", got.search.query, "l")
 	}
 }
 
 func TestSearchPanelMultipleKeysAppend(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
+	m.focus = focusSearch
 	keys := []rune{'l', 'e', 'd'}
 	for _, k := range keys {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{k}})
 		m = updated.(Model)
 	}
-	if m.search2.query != "led" {
-		t.Errorf("query = %q; want %q", m.search2.query, "led")
+	if m.search.query != "led" {
+		t.Errorf("query = %q; want %q", m.search.query, "led")
 	}
 }
 
 func TestSearchPanelBackspaceRemovesLastRune(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
-	m.search2.query = "led"
+	m.focus = focusSearch
+	m.search.inputMode = true
+	m.search.query = "led"
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	got := updated.(Model)
-	if got.search2.query != "le" {
-		t.Errorf("query = %q; want %q", got.search2.query, "le")
+	if got.search.query != "le" {
+		t.Errorf("query = %q; want %q", got.search.query, "le")
 	}
 }
 
 func TestSearchPanelEscClearsAndExitsInputMode(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
-	m.search2.query = "led"
+	m.focus = focusSearch
+	m.search.inputMode = true
+	m.search.query = "led"
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	got := updated.(Model)
-	if got.search2.inputMode {
+	if got.search.inputMode {
 		t.Error("expected inputMode false after esc")
 	}
-	if got.search2.query != "" {
-		t.Errorf("query = %q; want empty", got.search2.query)
+	if got.search.query != "" {
+		t.Errorf("query = %q; want empty", got.search.query)
 	}
 }
 
 func TestSearchPanelSpaceGoesIntoQuery(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
-	m.search2.query = "led"
+	m.focus = focusSearch
+	m.search.inputMode = true
+	m.search.query = "led"
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeySpace})
 	got := updated.(Model)
-	if got.search2.query != "led " {
-		t.Errorf("query = %q; want %q", got.search2.query, "led ")
+	if got.search.query != "led " {
+		t.Errorf("query = %q; want %q", got.search.query, "led ")
 	}
 }
 
 func TestSearchPanelNumberKeysStillJumpFocusInInputMode(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
-	m.search2.query = "le"
+	m.focus = focusSearch
+	m.search.inputMode = true
+	m.search.query = "le"
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
 	got := updated.(Model)
-	if got.focusZ != focusPlaylists {
-		t.Errorf("focusZ = %v; want focusPlaylists (1 always wins)", got.focusZ)
+	if got.focus != focusPlaylists {
+		t.Errorf("focusZ = %v; want focusPlaylists (1 always wins)", got.focus)
 	}
 	// Query unchanged.
-	if got.search2.query != "le" {
-		t.Errorf("query = %q; want %q (1 should not append)", got.search2.query, "le")
+	if got.search.query != "le" {
+		t.Errorf("query = %q; want %q (1 should not append)", got.search.query, "le")
 	}
 }
 
@@ -98,9 +98,9 @@ func TestSearchPanelEnterFiresSearch(t *testing.T) {
 	c.Launch(context.Background())
 	c.SetLibraryTracks([]domain.Track{{Title: "Stairway", Artist: "Led Zeppelin", PersistentID: "p1"}})
 	m := New(c, nil)
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
-	m.search2.query = "stair"
+	m.focus = focusSearch
+	m.search.inputMode = true
+	m.search.query = "stair"
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected fireSearchPanel Cmd")
@@ -117,8 +117,8 @@ func TestSearchPanelEnterFiresSearch(t *testing.T) {
 
 func TestSearchPanelResultsMsgPopulatesMainPane(t *testing.T) {
 	m := newTestModel()
-	m.search2.seq = 5
-	m.search2.query = "stair"
+	m.search.seq = 5
+	m.search.query = "stair"
 	tracks := []domain.Track{{Title: "Stairway", Artist: "Led Zeppelin"}}
 	updated, _ := m.Update(searchPanelResultsMsg{seq: 5, query: "stair", result: music.SearchResult{Tracks: tracks, Total: 1}})
 	got := updated.(Model)
@@ -128,14 +128,14 @@ func TestSearchPanelResultsMsgPopulatesMainPane(t *testing.T) {
 	if len(got.main.searchResults) != 1 {
 		t.Errorf("searchResults = %d; want 1", len(got.main.searchResults))
 	}
-	if got.focusZ != focusMain {
-		t.Errorf("focusZ = %v; want focusMain", got.focusZ)
+	if got.focus != focusMain {
+		t.Errorf("focusZ = %v; want focusMain", got.focus)
 	}
 }
 
 func TestSearchPanelStaleSeqDropped(t *testing.T) {
 	m := newTestModel()
-	m.search2.seq = 5
+	m.search.seq = 5
 	updated, _ := m.Update(searchPanelResultsMsg{seq: 4, query: "old"})
 	got := updated.(Model)
 	if got.main.mode == mainPaneSearchResults {
@@ -145,8 +145,8 @@ func TestSearchPanelStaleSeqDropped(t *testing.T) {
 
 func TestSearchPanelEnterEmptyQueryNoOp(t *testing.T) {
 	m := newTestModel()
-	m.focusZ = focusSearch
-	m.search2.inputMode = true
+	m.focus = focusSearch
+	m.search.inputMode = true
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd on empty query, got %T", cmd())
@@ -155,26 +155,26 @@ func TestSearchPanelEnterEmptyQueryNoOp(t *testing.T) {
 
 func TestSearchPanelResultsMsgErrorPreservesInputModeAndQuery(t *testing.T) {
 	m := newTestModel()
-	m.search2.seq = 5
-	m.search2.query = "stair"
-	m.search2.inputMode = true
-	m.search2.loading = true
+	m.search.seq = 5
+	m.search.query = "stair"
+	m.search.inputMode = true
+	m.search.loading = true
 	updated, _ := m.Update(searchPanelResultsMsg{seq: 5, query: "stair", err: errors.New("boom")})
 	got := updated.(Model)
-	if !got.search2.inputMode {
+	if !got.search.inputMode {
 		t.Error("inputMode should be preserved on error so user can retry")
 	}
-	if got.search2.query != "stair" {
-		t.Errorf("query = %q; want preserved 'stair'", got.search2.query)
+	if got.search.query != "stair" {
+		t.Errorf("query = %q; want preserved 'stair'", got.search.query)
 	}
-	if got.search2.err == nil {
+	if got.search.err == nil {
 		t.Error("err should be set")
 	}
-	if got.search2.loading {
+	if got.search.loading {
 		t.Error("loading should be cleared")
 	}
-	if got.search2.lastQuery != "" {
-		t.Errorf("lastQuery should NOT be written on error, got %q", got.search2.lastQuery)
+	if got.search.lastQuery != "" {
+		t.Errorf("lastQuery should NOT be written on error, got %q", got.search.lastQuery)
 	}
 	if got.main.mode == mainPaneSearchResults {
 		t.Error("main pane should not flip to search-results on error")

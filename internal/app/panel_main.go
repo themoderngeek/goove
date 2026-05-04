@@ -24,7 +24,7 @@ func renderMainTracks(m Model, width, height int) string {
 	if m.main.selectedPlaylist == "" {
 		title := "—"
 		body := subtitleStyle.Render("focus a panel on the left to see its content")
-		return panelBoxWide(title, body, width, height, m.focusZ == focusMain)
+		return panelBoxWide(title, body, width, height, m.focus == focusMain)
 	}
 	title := m.main.selectedPlaylist
 	if isPlayingFromSelected(m) {
@@ -45,20 +45,20 @@ func renderMainTracks(m Model, width, height int) string {
 	default:
 		body = renderTrackRows(m, tracks, width, height)
 	}
-	return panelBoxWide(title, body, width, height, m.focusZ == focusMain)
+	return panelBoxWide(title, body, width, height, m.focus == focusMain)
 }
 
 func renderMainSearchResults(m Model, width, height int) string {
 	title := fmt.Sprintf("Search: %q · %d results", "", len(m.main.searchResults))
-	if m.search2.lastQuery != "" {
-		title = fmt.Sprintf("Search: %q · %d results", m.search2.lastQuery, m.search2.total)
+	if m.search.lastQuery != "" {
+		title = fmt.Sprintf("Search: %q · %d results", m.search.lastQuery, m.search.total)
 	}
 	if len(m.main.searchResults) == 0 {
 		body := subtitleStyle.Render("no matches")
-		return panelBoxWide(title, body, width, height, m.focusZ == focusMain)
+		return panelBoxWide(title, body, width, height, m.focus == focusMain)
 	}
 	body := renderTrackRows(m, m.main.searchResults, width, height)
-	return panelBoxWide(title, body, width, height, m.focusZ == focusMain)
+	return panelBoxWide(title, body, width, height, m.focus == focusMain)
 }
 
 // renderTrackRows is shared between mainPaneTracks and mainPaneSearchResults.
@@ -72,7 +72,7 @@ func renderTrackRows(m Model, tracks []domain.Track, width, height int) string {
 	var sb strings.Builder
 	for i := start; i < len(tracks) && i-start < visibleRows; i++ {
 		marker := "  "
-		if i == m.main.cursor && m.focusZ == focusMain {
+		if i == m.main.cursor && m.focus == focusMain {
 			marker = "▶ "
 		}
 		t := tracks[i]
@@ -115,7 +115,7 @@ func panelBoxWide(title, body string, width, height int, focused bool) string {
 	return panelBox(title, body, width, height, focused)
 }
 
-// handleMainKey routes keys when focusZ == focusMain.
+// handleMainKey routes keys when focus == focusMain.
 func handleMainKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	tracks := mainPaneRows(m)
 	switch msg.String() {

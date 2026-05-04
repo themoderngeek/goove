@@ -135,27 +135,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case searchPanelResultsMsg:
-		if msg.seq != m.search2.seq {
+		if msg.seq != m.search.seq {
 			return m, nil // stale
 		}
-		m.search2.loading = false
+		m.search.loading = false
 		if msg.err != nil {
 			// Preserve inputMode + query so the user can press Enter to retry.
 			// lastQuery and total stay unchanged so we don't pollute the "done"
 			// render with stale data from a prior successful search.
-			m.search2.err = msg.err
+			m.search.err = msg.err
 			return m, nil
 		}
-		m.search2.err = nil
-		m.search2.inputMode = false
-		m.search2.lastQuery = msg.query
-		m.search2.total = msg.result.Total
+		m.search.err = nil
+		m.search.inputMode = false
+		m.search.lastQuery = msg.query
+		m.search.total = msg.result.Total
 		// Land results in main pane.
 		m.main.mode = mainPaneSearchResults
 		m.main.searchResults = domain.RankSearchResults(msg.result.Tracks, msg.query)
 		m.main.cursor = 0
 		// Focus jumps to main.
-		m.focusZ = focusMain
+		m.focus = focusMain
 		return m, nil
 
 	case searchPlayedMsg:
@@ -210,7 +210,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Phase 2: focus-routed panel handlers run before globals.
-	switch m.focusZ {
+	switch m.focus {
 	case focusPlaylists:
 		if mm, cmd, handled := handlePlaylistsKey(m, msg); handled {
 			return mm, cmd
@@ -231,27 +231,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "tab":
-		m.focusZ = nextFocus(m.focusZ)
+		m.focus = nextFocus(m.focus)
 		return m.onFocusEntered()
 
 	case "shift+tab":
-		m.focusZ = prevFocus(m.focusZ)
+		m.focus = prevFocus(m.focus)
 		return m.onFocusEntered()
 
 	case "1":
-		m.focusZ = focusPlaylists
+		m.focus = focusPlaylists
 		return m.onFocusEntered()
 
 	case "2":
-		m.focusZ = focusSearch
+		m.focus = focusSearch
 		return m.onFocusEntered()
 
 	case "3":
-		m.focusZ = focusOutput
+		m.focus = focusOutput
 		return m.onFocusEntered()
 
 	case "4":
-		m.focusZ = focusMain
+		m.focus = focusMain
 		return m.onFocusEntered()
 
 	case "q":
@@ -279,7 +279,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		m.focusZ = focusOutput
+		m.focus = focusOutput
 		mm, cmd := onFocusOutput(m)
 		return mm, cmd
 
@@ -287,17 +287,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil
 		}
-		m.focusZ = focusSearch
-		m.search2.inputMode = true
+		m.focus = focusSearch
+		m.search.inputMode = true
 		return m, nil
 	}
 	return m, nil
 }
 
-// onFocusEntered is called whenever m.focusZ has just been changed. Dispatches
+// onFocusEntered is called whenever m.focus has just been changed. Dispatches
 // to the per-panel on-focus hook, which may return a fetch Cmd.
 func (m Model) onFocusEntered() (Model, tea.Cmd) {
-	switch m.focusZ {
+	switch m.focus {
 	case focusPlaylists:
 		return onFocusPlaylists(m)
 	case focusOutput:

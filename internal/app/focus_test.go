@@ -4,7 +4,7 @@ import "testing"
 
 func TestNextFocusCyclesForward(t *testing.T) {
 	tests := []struct {
-		from, want focus
+		from, want focusKind
 	}{
 		{focusPlaylists, focusSearch},
 		{focusSearch, focusOutput},
@@ -21,7 +21,7 @@ func TestNextFocusCyclesForward(t *testing.T) {
 
 func TestPrevFocusCyclesBackward(t *testing.T) {
 	tests := []struct {
-		from, want focus
+		from, want focusKind
 	}{
 		{focusPlaylists, focusMain},
 		{focusSearch, focusPlaylists},
