@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -305,5 +306,53 @@ func TestNewInitialisesPlaylistsPanelLoading(t *testing.T) {
 	m := New(c, nil)
 	if !m.playlists.loading {
 		t.Error("expected playlists.loading = true after New so first frame shows 'loading…' instead of an empty panel")
+	}
+}
+
+func TestInitFetchesPlaylistsAndDevicesEagerly(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
+	c.SetDevices([]domain.AudioDevice{{Name: "MacBook"}})
+	m := New(c, nil)
+
+	initCmd := m.Init()
+	if initCmd == nil {
+		t.Fatal("Init returned nil Cmd")
+	}
+	raw := initCmd()
+	batch, ok := raw.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Init Cmd produced %T; want tea.BatchMsg", raw)
+	}
+
+	// Run each child Cmd with a short per-Cmd deadline so the two scheduled
+	// ticks (statusInterval = 1s, repaintInterval = 250ms) don't block the
+	// test. The fake-client-backed fetches return synchronously well within
+	// the deadline.
+	var sawPlaylists, sawDevices bool
+	for _, child := range batch {
+		if child == nil {
+			continue
+		}
+		ch := make(chan tea.Msg, 1)
+		go func(c tea.Cmd) { ch <- c() }(child)
+		select {
+		case msg := <-ch:
+			switch msg.(type) {
+			case playlistsMsg:
+				sawPlaylists = true
+			case devicesMsg:
+				sawDevices = true
+			}
+		case <-time.After(100 * time.Millisecond):
+			// tick or otherwise slow Cmd — ignore
+		}
+	}
+	if !sawPlaylists {
+		t.Error("Init batch did not produce a playlistsMsg — fetchPlaylists missing")
+	}
+	if !sawDevices {
+		t.Error("Init batch did not produce a devicesMsg — fetchDevices missing")
 	}
 }

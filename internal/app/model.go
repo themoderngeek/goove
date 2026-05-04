@@ -147,5 +147,7 @@ func (m Model) Init() tea.Cmd {
 		fetchStatus(m.client),
 		scheduleStatusTick(),
 		scheduleRepaintTick(),
+		fetchPlaylists(m.client),
+		fetchDevices(m.client),
 	)
 }
