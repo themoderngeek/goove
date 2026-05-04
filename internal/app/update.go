@@ -83,6 +83,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case playlistsMsg:
+		// Phase 2: also populate the persistent panel state.
+		m.playlists.loading = false
+		m.playlists.err = msg.err
+		if msg.err == nil {
+			m.playlists.items = msg.playlists
+			if m.playlists.cursor >= len(msg.playlists) {
+				m.playlists.cursor = 0
+			}
+		}
+		// Existing browser-modal write (Phase 2 still keeps the modal alive):
 		if m.browser != nil {
 			m.browser.loadingLists = false
 			m.browser.err = msg.err

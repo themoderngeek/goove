@@ -8,11 +8,41 @@ import (
 )
 
 // renderPlaylistsPanel renders the Playlists panel (left, top of stack).
-// Phase 1: placeholder. Phase 2 wires real content.
 func renderPlaylistsPanel(m Model, width, height int) string {
 	title := "Playlists"
-	body := subtitleStyle.Render("—")
+	body := renderPlaylistsBody(m, width, height)
 	return panelBox(title, body, width, height, m.focusZ == focusPlaylists)
+}
+
+func renderPlaylistsBody(m Model, width, height int) string {
+	if m.playlists.loading && len(m.playlists.items) == 0 {
+		return subtitleStyle.Render("loading…")
+	}
+	if m.playlists.err != nil {
+		return errorStyle.Render("error: " + m.playlists.err.Error())
+	}
+	if len(m.playlists.items) == 0 {
+		return subtitleStyle.Render("(no playlists)")
+	}
+	visibleRows := height - 4 // border + title + padding
+	if visibleRows < 1 {
+		visibleRows = 1
+	}
+	start := scrollWindow(m.playlists.cursor, visibleRows, len(m.playlists.items))
+
+	var sb strings.Builder
+	for i := start; i < len(m.playlists.items) && i-start < visibleRows; i++ {
+		marker := "  "
+		if i == m.playlists.cursor && m.focusZ == focusPlaylists {
+			marker = "▶ "
+		}
+		row := marker + m.playlists.items[i].Name
+		sb.WriteString(truncate(row, width-4))
+		if i-start < visibleRows-1 {
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
 }
 
 // onFocusPlaylists is called by handleKey whenever focus transitions TO the
