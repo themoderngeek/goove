@@ -8,14 +8,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// renderNowPlayingPanel renders the top panel for any AppState. The shape is
-// identical to the previous renderConnected / renderIdle / renderDisconnected
-// trio — they're just moved here under a single entry point so view.go can
-// compose this panel beside the others.
-//
-// Phase 1: the panel still uses the existing card/border style. Phase 5
-// adds optional album art on the left.
+// renderNowPlayingPanel renders the top panel for any AppState, wrapped in a
+// panelBox with "Now Playing" as the title-in-border, stretched to full width.
 func renderNowPlayingPanel(m Model) string {
+	width := m.width
+	if width <= 0 {
+		width = 100
+	}
+	var body string
 	switch s := m.state.(type) {
 	case Connected:
 		// Only show art when it's for the currently-playing track. After a
@@ -25,16 +25,19 @@ func renderNowPlayingPanel(m Model) string {
 		if m.art.key == trackKey(s.Now.Track) {
 			art = m.art.output
 		}
-		return renderConnectedCardOnly(s, art, m.width)
+		body = renderConnectedCardOnly(s, art, width)
 	case Idle:
-		return renderIdleCard(s.Volume)
+		body = renderIdleCard(s.Volume)
 	case Disconnected:
-		return renderDisconnectedCard()
+		body = renderDisconnectedCard()
+	default:
+		return ""
 	}
-	return ""
+	height := lipgloss.Height(body) + 2 // border top + bottom
+	return panelBox("Now Playing", body, width, height, false)
 }
 
-// renderConnectedCardOnly returns just the card (no footer / no error line).
+// renderConnectedCardOnly returns just the body content (no border wrapper).
 // view.go composes the footer separately. Same content as renderConnectedCard
 // but no margin wrapping (the parent does that).
 func renderConnectedCardOnly(s Connected, art string, width int) string {
@@ -66,18 +69,16 @@ func renderConnectedCardOnly(s Connected, art string, width int) string {
 	if width >= artLayoutThreshold && art != "" {
 		content = lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", content)
 	}
-	return cardStyle.Render(content)
+	return content
 }
 
 func renderIdleCard(volume int) string {
-	body := titleStyle.Render("Music is open, nothing playing.") + "\n\n" +
+	return titleStyle.Render("Music is open, nothing playing.") + "\n\n" +
 		subtitleStyle.Render("press space or n to start playback") + "\n\n" +
 		"volume  " + volumeBar(volume, volumeBarWidth) + fmt.Sprintf("   %d%%", volume)
-	return cardStyle.Render(body)
 }
 
 func renderDisconnectedCard() string {
-	body := titleStyle.Render("Apple Music isn't running.") + "\n\n" +
+	return titleStyle.Render("Apple Music isn't running.") + "\n\n" +
 		subtitleStyle.Render("press space to launch it, q to quit")
-	return cardStyle.Render(body)
 }

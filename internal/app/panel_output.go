@@ -20,7 +20,7 @@ func renderOutputBody(m Model, width, height int) string {
 	if len(m.output.devices) == 0 {
 		return subtitleStyle.Render("(no devices)")
 	}
-	visibleRows := height - 4
+	visibleRows := height - 2 // top border + bottom border (title is now in the border)
 	if visibleRows < 1 {
 		visibleRows = 1
 	}

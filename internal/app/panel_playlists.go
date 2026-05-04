@@ -21,7 +21,7 @@ func renderPlaylistsBody(m Model, width, height int) string {
 	if len(m.playlists.items) == 0 {
 		return subtitleStyle.Render("(no playlists)")
 	}
-	visibleRows := height - 4 // top border + bottom border + title row + title/body separator
+	visibleRows := height - 2 // top border + bottom border (title is now in the border)
 	if visibleRows < 1 {
 		visibleRows = 1
 	}
@@ -119,18 +119,74 @@ func onPlaylistsCursorChanged(m Model) (Model, tea.Cmd) {
 	return m, schedulePlaylistTracksDebounce(m.playlists.seq, name)
 }
 
-// panelBox is the shared lipgloss box used by every left-column panel.
-// focused=true draws the border in the focus colour.
+// panelBox renders a bordered panel with the title embedded in the top border.
+// Layout: ┌─ <title> ────────────┐
+//
+//	│  <body lines...>      │
+//	└───────────────────────┘
+//
+// width and height are the OUTER dimensions of the box (including borders).
+// focused=true colours the border yellow; otherwise it's muted.
 func panelBox(title, body string, width, height int, focused bool) string {
-	style := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("#6b7280")).
-		Width(width-2).
-		Height(height-2).
-		Padding(0, 1)
+	color := lipgloss.Color("#6b7280")
 	if focused {
-		style = style.BorderForeground(lipgloss.Color("#ebcb8b"))
+		color = lipgloss.Color("#ebcb8b")
 	}
-	header := titleStyle.Render(title)
-	return style.Render(header + "\n" + strings.TrimRight(body, "\n"))
+	borderStyle := lipgloss.NewStyle().Foreground(color)
+
+	if width < 4 {
+		width = 4
+	}
+	if height < 2 {
+		height = 2
+	}
+	inner := width - 2 // chars between the two corner pieces
+
+	// Top row: ┌─ title ─...─┐
+	var topInner string
+	if title == "" {
+		topInner = strings.Repeat("─", inner)
+	} else {
+		seg := "─ " + title + " "
+		segWidth := lipgloss.Width(seg)
+		if segWidth >= inner {
+			// Title too long; truncate so we still fit the corners.
+			topInner = "─" + truncate(" "+title+" ", inner-1)
+		} else {
+			topInner = seg + strings.Repeat("─", inner-segWidth)
+		}
+	}
+	top := borderStyle.Render("┌" + topInner + "┐")
+	bottom := borderStyle.Render("└" + strings.Repeat("─", inner) + "┘")
+
+	// Body lines: │ <content padded to inner-2> │
+	contentWidth := inner - 2 // 1 col left padding + 1 col right padding
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+	bodyHeight := height - 2 // top + bottom rows
+	if bodyHeight < 0 {
+		bodyHeight = 0
+	}
+	bodyLines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+
+	var sb strings.Builder
+	sb.WriteString(top)
+	for i := 0; i < bodyHeight; i++ {
+		sb.WriteString("\n")
+		line := ""
+		if i < len(bodyLines) {
+			line = bodyLines[i]
+		}
+		// Pad line to contentWidth using lipgloss (ANSI-aware).
+		padded := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Render(line)
+		sb.WriteString(borderStyle.Render("│"))
+		sb.WriteString(" ")
+		sb.WriteString(padded)
+		sb.WriteString(" ")
+		sb.WriteString(borderStyle.Render("│"))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(bottom)
+	return sb.String()
 }

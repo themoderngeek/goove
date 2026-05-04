@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/themoderngeek/goove/internal/domain"
 	"github.com/themoderngeek/goove/internal/music"
@@ -64,7 +63,7 @@ func renderMainSearchResults(m Model, width, height int) string {
 
 // renderTrackRows is shared between mainPaneTracks and mainPaneSearchResults.
 func renderTrackRows(m Model, tracks []domain.Track, width, height int) string {
-	visibleRows := height - 4
+	visibleRows := height - 2 // top border + bottom border (title is now in the border)
 	if visibleRows < 1 {
 		visibleRows = 1
 	}
@@ -109,21 +108,11 @@ func isPlayingFromSelected(m Model) bool {
 	return false
 }
 
-// panelBoxWide is the same as panelBox but for the wider main pane. Identical
-// implementation kept separate so future tweaks (e.g. main pane padding) can
-// diverge without touching left-column panels.
+// panelBoxWide is preserved as a name for the wider main pane in case future
+// tweaks (different padding etc.) want to diverge. For now it's identical to
+// panelBox.
 func panelBoxWide(title, body string, width, height int, focused bool) string {
-	style := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("#6b7280")).
-		Width(width-2).
-		Height(height-2).
-		Padding(0, 1)
-	if focused {
-		style = style.BorderForeground(lipgloss.Color("#ebcb8b"))
-	}
-	header := titleStyle.Render(title)
-	return style.Render(header + "\n" + strings.TrimRight(body, "\n"))
+	return panelBox(title, body, width, height, focused)
 }
 
 // handleMainKey routes keys when focusZ == focusMain.
