@@ -35,14 +35,14 @@ type artworkMsg struct {
 	err    error
 }
 
-// devicesMsg is the result of a fetchDevices Cmd — populates the picker.
+// devicesMsg is the result of a fetchDevices Cmd — populates the Output panel.
 type devicesMsg struct {
 	devices []domain.AudioDevice
 	err     error
 }
 
-// deviceSetMsg is the result of a SetAirPlayDevice call from inside the picker.
-// On success, the picker closes; on error, the picker stays open and shows the error.
+// deviceSetMsg is the result of a SetAirPlayDevice call from the Output panel.
+// On success the device list is refreshed to pick up the new Selected flag.
 type deviceSetMsg struct {
 	err error
 }
