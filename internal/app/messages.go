@@ -89,8 +89,9 @@ type playlistTracksDebounceMsg struct {
 	name string
 }
 
-// searchPanelResultsMsg is the panel flow's analogue of searchResultsMsg.
-// Carries seq + query for stale-result rejection.
+// searchPanelResultsMsg carries the result of a SearchTracks call dispatched
+// by the Search panel's Enter handler. seq + query are used for stale-result
+// rejection when the user has typed/fired again before this one lands.
 type searchPanelResultsMsg struct {
 	seq    uint64
 	query  string
