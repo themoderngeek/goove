@@ -17,9 +17,8 @@ func renderPlaylistsPanel(m Model, width, height int) string {
 // panelBox is the shared lipgloss box used by every left-column panel.
 // focused=true draws the border in the focus colour.
 func panelBox(title, body string, width, height int, focused bool) string {
-	border := lipgloss.NormalBorder()
 	style := lipgloss.NewStyle().
-		Border(border).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("#6b7280")).
 		Width(width - 2).
 		Height(height - 2).

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -26,5 +28,5 @@ func panelBoxWide(title, body string, width, height int, focused bool) string {
 		style = style.BorderForeground(lipgloss.Color("#ebcb8b"))
 	}
 	header := titleStyle.Render(title)
-	return style.Render(header + "\n" + body)
+	return style.Render(header + "\n" + strings.TrimRight(body, "\n"))
 }
