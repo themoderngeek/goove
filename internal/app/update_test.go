@@ -1346,3 +1346,47 @@ func TestFocusingPlaylistsDoesNotRefetchWhenCached(t *testing.T) {
 		t.Errorf("expected no Cmd when playlists already cached, got %T", cmd())
 	}
 }
+
+func TestPlaylistsMsgPopulatesPanelStateOnSuccess(t *testing.T) {
+	m := newTestModel()
+	m.playlists.loading = true
+	pls := []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	updated, _ := m.Update(playlistsMsg{playlists: pls})
+	got := updated.(Model)
+	if got.playlists.loading {
+		t.Error("loading should be cleared on success")
+	}
+	if got.playlists.err != nil {
+		t.Errorf("err should be nil on success, got %v", got.playlists.err)
+	}
+	if len(got.playlists.items) != 2 {
+		t.Errorf("items = %d entries; want 2", len(got.playlists.items))
+	}
+}
+
+func TestPlaylistsMsgClearsLoadingOnError(t *testing.T) {
+	m := newTestModel()
+	m.playlists.loading = true
+	updated, _ := m.Update(playlistsMsg{err: errors.New("boom")})
+	got := updated.(Model)
+	if got.playlists.loading {
+		t.Error("loading should be cleared even on error")
+	}
+	if got.playlists.err == nil {
+		t.Error("expected err set")
+	}
+	if len(got.playlists.items) != 0 {
+		t.Errorf("items should not be populated on error, got %d", len(got.playlists.items))
+	}
+}
+
+func TestPlaylistsMsgClampsCursorWhenResultShorter(t *testing.T) {
+	m := newTestModel()
+	m.playlists.cursor = 5
+	pls := []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	updated, _ := m.Update(playlistsMsg{playlists: pls})
+	got := updated.(Model)
+	if got.playlists.cursor != 0 {
+		t.Errorf("cursor should clamp to 0 when result shorter than current cursor, got %d", got.playlists.cursor)
+	}
+}

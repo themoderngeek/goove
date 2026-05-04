@@ -24,7 +24,7 @@ func renderPlaylistsBody(m Model, width, height int) string {
 	if len(m.playlists.items) == 0 {
 		return subtitleStyle.Render("(no playlists)")
 	}
-	visibleRows := height - 4 // border + title + padding
+	visibleRows := height - 4 // top border + bottom border + title row + title/body separator
 	if visibleRows < 1 {
 		visibleRows = 1
 	}
