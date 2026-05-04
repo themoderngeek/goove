@@ -356,3 +356,65 @@ func TestInitFetchesPlaylistsAndDevicesEagerly(t *testing.T) {
 		t.Error("Init batch did not produce a devicesMsg — fetchDevices missing")
 	}
 }
+
+func TestPlaylistsMsgPrefetchesFirstPlaylistTracksWhenSelectedEmpty(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}, {Name: "Recent"}})
+	c.SetPlaylistTracks("Liked Songs", []domain.Track{{Title: "t1"}, {Title: "t2"}})
+	m := New(c, nil)
+	// main.selectedPlaylist defaults to "" — that's the trigger for prefetch.
+
+	updated, cmd := m.Update(playlistsMsg{playlists: []domain.Playlist{
+		{Name: "Liked Songs"}, {Name: "Recent"},
+	}})
+	got := updated.(Model)
+
+	if got.main.selectedPlaylist != "Liked Songs" {
+		t.Errorf("main.selectedPlaylist = %q; want %q (auto-selected first playlist)",
+			got.main.selectedPlaylist, "Liked Songs")
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylistTracks Cmd for first playlist; got nil")
+	}
+	out := cmd()
+	tracksMsg, ok := out.(playlistTracksMsg)
+	if !ok {
+		t.Fatalf("cmd produced %T; want playlistTracksMsg", out)
+	}
+	if tracksMsg.name != "Liked Songs" {
+		t.Errorf("playlistTracksMsg.name = %q; want %q", tracksMsg.name, "Liked Songs")
+	}
+}
+
+func TestPlaylistsMsgDoesNotClobberExistingSelection(t *testing.T) {
+	m := newTestModel()
+	m.main.selectedPlaylist = "Recent" // user already moved cursor before list arrived
+
+	updated, cmd := m.Update(playlistsMsg{playlists: []domain.Playlist{
+		{Name: "Liked Songs"}, {Name: "Recent"},
+	}})
+	got := updated.(Model)
+
+	if got.main.selectedPlaylist != "Recent" {
+		t.Errorf("main.selectedPlaylist = %q; want %q (must not be clobbered)",
+			got.main.selectedPlaylist, "Recent")
+	}
+	if cmd != nil {
+		t.Errorf("expected no Cmd when selectedPlaylist is already set, got %T", cmd())
+	}
+}
+
+func TestPlaylistsMsgWithEmptyResultDoesNotPrefetch(t *testing.T) {
+	m := newTestModel()
+	updated, cmd := m.Update(playlistsMsg{playlists: nil})
+	got := updated.(Model)
+
+	if got.main.selectedPlaylist != "" {
+		t.Errorf("main.selectedPlaylist = %q; want empty (no items to select)",
+			got.main.selectedPlaylist)
+	}
+	if cmd != nil {
+		t.Errorf("expected no Cmd with empty playlists, got %T", cmd())
+	}
+}
