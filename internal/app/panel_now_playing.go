@@ -18,7 +18,14 @@ import (
 func renderNowPlayingPanel(m Model) string {
 	switch s := m.state.(type) {
 	case Connected:
-		return renderConnectedCardOnly(s, m.art.output, m.width)
+		// Only show art when it's for the currently-playing track. After a
+		// track skip, m.art.output may still hold the old track's render
+		// until the new fetchArtwork lands; suppress it during that window.
+		art := ""
+		if m.art.key == trackKey(s.Now.Track) {
+			art = m.art.output
+		}
+		return renderConnectedCardOnly(s, art, m.width)
 	case Idle:
 		return renderIdleCard(s.Volume)
 	case Disconnected:
