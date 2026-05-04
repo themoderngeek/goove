@@ -14,6 +14,7 @@ const (
 	progressBarWidth = 20
 	volumeBarWidth   = 10
 	compactThreshold = 50
+	minLayoutHeight  = 22 // below this, the four-zone layout collapses; fall back to compact
 )
 
 const connectedKeybindsText = " space: play/pause   n: next   p: prev   +/-: vol   /: search   o: output   l: browse   q: quit"
@@ -43,6 +44,9 @@ func (m Model) View() string {
 		return renderBrowser(m)
 	}
 	if m.width > 0 && m.width < compactThreshold {
+		return renderCompact(m)
+	}
+	if m.height > 0 && m.height < minLayoutHeight {
 		return renderCompact(m)
 	}
 	return renderLayout(m)
@@ -236,11 +240,12 @@ func renderLayout(m Model) string {
 	if leftWidth < 18 {
 		leftWidth = 18
 	}
-	mainWidth := width - leftWidth - 2
+	mainWidth := width - leftWidth - 2 // -2: leaves a 2-col right-edge margin
 
 	// Three left-column panels share the remaining vertical space below the
-	// now-playing panel. We give equal heights for v1.
-	bottomHeight := height - lipgloss.Height(now) - 2
+	// now-playing panel. We give equal heights for v1; any remainder from the
+	// integer division shows as a small unbordered gap below the Output panel.
+	bottomHeight := height - lipgloss.Height(now) - 2 // -2: 1 row hint bar + 1 row spare
 	panelHeight := bottomHeight / 3
 
 	pl := renderPlaylistsPanel(m, leftWidth, panelHeight)
