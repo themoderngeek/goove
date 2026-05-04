@@ -54,33 +54,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case devicesMsg:
-		if m.picker == nil {
-			return m, nil // user esc'd before fetch returned — discard
+		// Phase 4: populate the persistent panel state.
+		m.output.loading = false
+		m.output.err = msg.err
+		if msg.err == nil {
+			m.output.devices = msg.devices
+			for i, d := range msg.devices {
+				if d.Selected {
+					m.output.cursor = i
+					break
+				}
+			}
 		}
-		m.picker.loading = false
-		m.picker.err = msg.err
-		m.picker.devices = msg.devices
-		// Land cursor on currently-selected device, if any.
-		for i, d := range msg.devices {
-			if d.Selected {
-				m.picker.cursor = i
-				break
+		// Existing picker-modal write (Phase 4 still keeps the modal alive):
+		if m.picker != nil {
+			m.picker.loading = false
+			m.picker.err = msg.err
+			m.picker.devices = msg.devices
+			for i, d := range msg.devices {
+				if d.Selected {
+					m.picker.cursor = i
+					break
+				}
 			}
 		}
 		return m, nil
 
 	case deviceSetMsg:
-		if m.picker == nil {
-			return m, nil // user esc'd before set returned — discard
-		}
+		// Phase 4: panel flow.
+		m.output.loading = false
 		if msg.err != nil {
-			m.picker.loading = false
-			m.picker.err = msg.err
+			m.output.err = msg.err
+			// Existing picker-modal write (error path):
+			if m.picker != nil {
+				m.picker.loading = false
+				m.picker.err = msg.err
+			}
 			return m, nil
 		}
-		// Success: close the picker. Next 1Hz status tick re-renders the player view.
+		// Success: close the picker modal (if open) and refresh device list
+		// to pick up the new Selected flag.
 		m.picker = nil
-		return m, nil
+		return m, fetchDevices(m.client)
 
 	case playlistsMsg:
 		m.playlists.loading = false
@@ -217,6 +232,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			if mm, cmd, handled := handleSearchPanelKey(m, msg); handled {
 				return mm, cmd
 			}
+		case focusOutput:
+			if mm, cmd, handled := handleOutputKey(m, msg); handled {
+				return mm, cmd
+			}
 		case focusMain:
 			if mm, cmd, handled := handleMainKey(m, msg); handled {
 				return mm, cmd
@@ -342,6 +361,8 @@ func (m Model) onFocusEntered() (Model, tea.Cmd) {
 	switch m.focusZ {
 	case focusPlaylists:
 		return onFocusPlaylists(m)
+	case focusOutput:
+		return onFocusOutput(m)
 	}
 	return m, nil
 }
