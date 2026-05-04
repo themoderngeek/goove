@@ -40,7 +40,6 @@ type playlistsPanel struct {
 	items          []domain.Playlist
 	cursor         int
 	loading        bool
-	err            error // set ONLY by fetchPlaylists failures (the list itself); track-fetch errors live in trackErrByName
 	tracksByName   map[string][]domain.Track
 	fetchingFor    map[string]bool
 	trackErrByName map[string]error // per-playlist track-fetch errors; surfaced in the main pane
@@ -71,7 +70,6 @@ type outputPanel struct {
 	devices []domain.AudioDevice
 	cursor  int
 	loading bool
-	err     error
 }
 
 // mainPaneMode toggles what content the main pane displays. Tracks of the

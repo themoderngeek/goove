@@ -122,9 +122,6 @@ func TestDeviceSetMsgErrorRoutesToLastErrorNotPanel(t *testing.T) {
 	m.output.loading = true
 	updated, cmd := m.Update(deviceSetMsg{err: errors.New("device gone")})
 	got := updated.(Model)
-	if got.output.err != nil {
-		t.Errorf("output.err must NOT be set by device-switch errors, got %v", got.output.err)
-	}
 	if got.lastError == nil {
 		t.Error("lastError must be set on device-switch error")
 	}
@@ -158,9 +155,6 @@ func TestDevicesMsgErrorRoutesToLastErrorNotPanel(t *testing.T) {
 	m.output.loading = true
 	updated, cmd := m.Update(devicesMsg{err: errors.New("backend killed")})
 	got := updated.(Model)
-	if got.output.err != nil {
-		t.Errorf("output.err must NOT be set; got %v", got.output.err)
-	}
 	if got.lastError == nil {
 		t.Error("expected lastError set on devices-fetch error")
 	}

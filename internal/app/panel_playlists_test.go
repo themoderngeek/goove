@@ -264,9 +264,6 @@ func TestPlaylistTracksMsgErrorWritesPerNameNotPanelErr(t *testing.T) {
 	m.playlists.fetchingFor["B"] = true
 	updated, _ := m.Update(playlistTracksMsg{name: "B", err: errors.New("boom")})
 	got := updated.(Model)
-	if got.playlists.err != nil {
-		t.Errorf("playlists.err must NOT be set by track-fetch errors, got %v", got.playlists.err)
-	}
 	if got.playlists.trackErrByName["B"] == nil {
 		t.Error("trackErrByName[B] must be set on track-fetch error")
 	}

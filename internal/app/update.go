@@ -125,8 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(m.playlists.fetchingFor, msg.name)
 		if msg.err != nil {
 			// Per-playlist error — surfaced in the main pane next to the playlist
-			// it belongs to. Crucially does NOT write m.playlists.err, which would
-			// clobber the entire Playlists panel display.
+			// it belongs to, not in the global error footer.
 			m.playlists.trackErrByName[msg.name] = msg.err
 		} else {
 			delete(m.playlists.trackErrByName, msg.name)

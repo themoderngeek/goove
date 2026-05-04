@@ -595,9 +595,6 @@ func TestPlaylistsMsgPopulatesPanelStateOnSuccess(t *testing.T) {
 	if got.playlists.loading {
 		t.Error("loading should be cleared on success")
 	}
-	if got.playlists.err != nil {
-		t.Errorf("err should be nil on success, got %v", got.playlists.err)
-	}
 	if len(got.playlists.items) != 2 {
 		t.Errorf("items = %d entries; want 2", len(got.playlists.items))
 	}
@@ -613,9 +610,6 @@ func TestPlaylistsMsgClearsLoadingOnError(t *testing.T) {
 	}
 	if got.lastError == nil {
 		t.Error("expected lastError set on list-fetch error")
-	}
-	if got.playlists.err != nil {
-		t.Errorf("playlists.err must NOT be set; got %v", got.playlists.err)
 	}
 	if len(got.playlists.items) != 0 {
 		t.Errorf("items should not be populated on error, got %d", len(got.playlists.items))
