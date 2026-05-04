@@ -9,9 +9,9 @@ import (
 )
 
 // renderNowPlayingPanel renders the top panel for any AppState, wrapped in a
-// panelBox with "Now Playing" as the title-in-border, stretched to full width.
-func renderNowPlayingPanel(m Model) string {
-	width := m.width
+// panelBox with "Now Playing" as the title-in-border. Width is dictated by the
+// caller so the panel can line up with the bottom row's right edge.
+func renderNowPlayingPanel(m Model, width int) string {
 	if width <= 0 {
 		width = 100
 	}

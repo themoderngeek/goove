@@ -222,9 +222,6 @@ func renderLayout(m Model) string {
 		height = 30
 	}
 
-	// Top panel: now-playing, full width.
-	now := renderNowPlayingPanel(m)
-
 	// Geometry: left column ~25% of width, main pane gets the rest.
 	leftWidth := width / 4
 	if leftWidth < 18 {
@@ -232,15 +229,21 @@ func renderLayout(m Model) string {
 	}
 	mainWidth := width - leftWidth - 2 // -2: leaves a 2-col right-edge margin
 
+	// Top panel: now-playing, sized to the same total width as the bottom row
+	// (leftWidth + mainWidth = width - 2) so the right edges line up.
+	topWidth := leftWidth + mainWidth
+	now := renderNowPlayingPanel(m, topWidth)
+
 	// Three left-column panels share the remaining vertical space below the
-	// now-playing panel. We give equal heights for v1; any remainder from the
-	// integer division shows as a small unbordered gap below the Output panel.
+	// now-playing panel. Equal thirds; the Output panel absorbs the integer-
+	// division remainder so the column reaches the same bottom edge as the
+	// main pane.
 	bottomHeight := height - lipgloss.Height(now) - 2 // -2: 1 row hint bar + 1 row spare
 	panelHeight := bottomHeight / 3
 
 	pl := renderPlaylistsPanel(m, leftWidth, panelHeight)
 	se := renderSearchPanel(m, leftWidth, panelHeight)
-	op := renderOutputPanel(m, leftWidth, panelHeight)
+	op := renderOutputPanel(m, leftWidth, bottomHeight-2*panelHeight)
 	leftCol := lipgloss.JoinVertical(lipgloss.Left, pl, se, op)
 
 	mn := renderMainPanel(m, mainWidth, bottomHeight)

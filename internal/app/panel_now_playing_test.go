@@ -13,7 +13,7 @@ func TestNowPlayingRendersConnectedTrack(t *testing.T) {
 		Track:  domain.Track{Title: "Stairway", Artist: "Led Zeppelin"},
 		Volume: 50,
 	}}
-	got := renderNowPlayingPanel(m)
+	got := renderNowPlayingPanel(m, m.width)
 	if !strings.Contains(got, "Stairway") {
 		t.Errorf("missing title: %q", got)
 	}
@@ -25,7 +25,7 @@ func TestNowPlayingRendersConnectedTrack(t *testing.T) {
 func TestNowPlayingRendersIdle(t *testing.T) {
 	m := newTestModel()
 	m.state = Idle{Volume: 50}
-	got := renderNowPlayingPanel(m)
+	got := renderNowPlayingPanel(m, m.width)
 	if !strings.Contains(got, "nothing playing") && !strings.Contains(got, "Music is open") {
 		t.Errorf("idle missing expected text: %q", got)
 	}
@@ -34,7 +34,7 @@ func TestNowPlayingRendersIdle(t *testing.T) {
 func TestNowPlayingRendersDisconnected(t *testing.T) {
 	m := newTestModel()
 	m.state = Disconnected{}
-	got := renderNowPlayingPanel(m)
+	got := renderNowPlayingPanel(m, m.width)
 	if !strings.Contains(got, "isn't running") && !strings.Contains(got, "Music") {
 		t.Errorf("disconnected missing expected text: %q", got)
 	}
@@ -46,7 +46,7 @@ func TestNowPlayingArtAppearsWhenWideAndCached(t *testing.T) {
 	track := domain.Track{Title: "T", Artist: "A", Album: "Al"}
 	m.state = Connected{Now: domain.NowPlaying{Track: track, Volume: 50}}
 	m.art = artState{key: trackKey(track), output: "ART_OUTPUT_HERE"}
-	got := renderNowPlayingPanel(m)
+	got := renderNowPlayingPanel(m, m.width)
 	if !strings.Contains(got, "ART_OUTPUT_HERE") {
 		t.Errorf("expected art content; got %q", got)
 	}
@@ -58,7 +58,7 @@ func TestNowPlayingArtHiddenBelowThreshold(t *testing.T) {
 	track := domain.Track{Title: "T", Artist: "A", Album: "Al"}
 	m.state = Connected{Now: domain.NowPlaying{Track: track, Volume: 50}}
 	m.art = artState{key: trackKey(track), output: "ART_OUTPUT_HERE"}
-	got := renderNowPlayingPanel(m)
+	got := renderNowPlayingPanel(m, m.width)
 	if strings.Contains(got, "ART_OUTPUT_HERE") {
 		t.Errorf("expected art hidden below threshold; got %q", got)
 	}
