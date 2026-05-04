@@ -102,7 +102,10 @@ type playlistsPanel struct {
 
 // searchPanel is the state of the Search panel (left, middle of stack).
 // inputMode true means typing routes into the query; outside input mode the
-// panel is "idle" and shows a muted prompt.
+// panel is "idle" and shows a muted prompt. Result rows themselves live on
+// mainPanel.searchResults — this struct holds only the query-input and
+// summary state (last-fired query and total match count for the panel's
+// "N results" line).
 type searchPanel struct {
 	inputMode bool
 	query     string
@@ -114,6 +117,9 @@ type searchPanel struct {
 }
 
 // outputPanel is the state of the Output panel (left, bottom of stack).
+// Devices are fetched lazily on first focus and cached. Selection is
+// two-step (Q3-C in the design): cursor moves don't switch the audio
+// device — only ⏎ does.
 type outputPanel struct {
 	devices []domain.AudioDevice
 	cursor  int
@@ -121,7 +127,9 @@ type outputPanel struct {
 	err     error
 }
 
-// mainPaneMode is which "view" the main pane is showing.
+// mainPaneMode toggles what content the main pane displays. Tracks of the
+// playlist currently selected on the left (default), or the rows of the
+// most recent search.
 type mainPaneMode int
 
 const (
@@ -129,7 +137,10 @@ const (
 	mainPaneSearchResults
 )
 
-// mainPanel is the state of the right-hand main pane.
+// mainPanel is the state of the right-hand main pane. searchResults is
+// populated by the Search panel's enter handler when it fires a query;
+// this is intentional cross-struct ownership — the Search panel owns
+// query input, the main pane owns the rows.
 type mainPanel struct {
 	mode             mainPaneMode
 	cursor           int
