@@ -205,27 +205,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab":
 		m.focusZ = nextFocus(m.focusZ)
-		return m, nil
+		return m.onFocusEntered()
 
 	case "shift+tab":
 		m.focusZ = prevFocus(m.focusZ)
-		return m, nil
+		return m.onFocusEntered()
 
 	case "1":
 		m.focusZ = focusPlaylists
-		return m, nil
+		return m.onFocusEntered()
 
 	case "2":
 		m.focusZ = focusSearch
-		return m, nil
+		return m.onFocusEntered()
 
 	case "3":
 		m.focusZ = focusOutput
-		return m, nil
+		return m.onFocusEntered()
 
 	case "4":
 		m.focusZ = focusMain
-		return m, nil
+		return m.onFocusEntered()
 
 	case "q":
 		return m, tea.Quit
@@ -324,6 +324,16 @@ func (m Model) handlePickerKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			err := client.SetAirPlayDevice(context.Background(), target)
 			return deviceSetMsg{err: err}
 		}
+	}
+	return m, nil
+}
+
+// onFocusEntered is called whenever m.focusZ has just been changed. Dispatches
+// to the per-panel on-focus hook, which may return a fetch Cmd.
+func (m Model) onFocusEntered() (Model, tea.Cmd) {
+	switch m.focusZ {
+	case focusPlaylists:
+		return onFocusPlaylists(m)
 	}
 	return m, nil
 }

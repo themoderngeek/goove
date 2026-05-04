@@ -1315,3 +1315,34 @@ func TestFocusKeysSuppressedWhileBrowserOpen(t *testing.T) {
 		t.Errorf("focusZ after '2' while browser open = %v; want focusPlaylists (no change)", got.focusZ)
 	}
 }
+
+func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
+	c := fake.New()
+	c.Launch(nil)
+	m := New(c, nil)
+	// focusZ starts at focusPlaylists by default; we force a transition to
+	// trigger the on-focus fetch.
+	m.focusZ = focusSearch
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	got := updated.(Model)
+	if got.focusZ != focusPlaylists {
+		t.Fatalf("focusZ = %v; want focusPlaylists", got.focusZ)
+	}
+	if cmd == nil {
+		t.Fatal("expected fetchPlaylists Cmd on focus")
+	}
+	out := cmd()
+	if _, ok := out.(playlistsMsg); !ok {
+		t.Fatalf("cmd produced %T; want playlistsMsg", out)
+	}
+}
+
+func TestFocusingPlaylistsDoesNotRefetchWhenCached(t *testing.T) {
+	m := newTestModel()
+	m.playlists.items = []domain.Playlist{{Name: "Liked Songs"}}
+	m.focusZ = focusSearch
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	if cmd != nil {
+		t.Errorf("expected no Cmd when playlists already cached, got %T", cmd())
+	}
+}

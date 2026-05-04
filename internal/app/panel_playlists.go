@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -12,6 +13,17 @@ func renderPlaylistsPanel(m Model, width, height int) string {
 	title := "Playlists"
 	body := subtitleStyle.Render("—")
 	return panelBox(title, body, width, height, m.focusZ == focusPlaylists)
+}
+
+// onFocusPlaylists is called by handleKey whenever focus transitions TO the
+// Playlists panel. Returns a fetchPlaylists Cmd if the list isn't cached yet,
+// or nil. Idempotent on repeat focuses (cache hit ⇒ no Cmd).
+func onFocusPlaylists(m Model) (Model, tea.Cmd) {
+	if len(m.playlists.items) > 0 || m.playlists.loading {
+		return m, nil
+	}
+	m.playlists.loading = true
+	return m, fetchPlaylists(m.client)
 }
 
 // panelBox is the shared lipgloss box used by every left-column panel.
