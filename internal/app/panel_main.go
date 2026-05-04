@@ -173,6 +173,6 @@ func mainPaneRows(m Model) []domain.Track {
 // client.PlayTrack — same call the search modal already made.
 func playTrack(c music.Client, persistentID string) tea.Cmd {
 	return func() tea.Msg {
-		return searchPlayedMsg{err: c.PlayTrack(context.Background(), persistentID)}
+		return playTrackResultMsg{err: c.PlayTrack(context.Background(), persistentID)}
 	}
 }

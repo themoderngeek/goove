@@ -71,12 +71,11 @@ type playPlaylistMsg struct {
 	err error
 }
 
-// searchPlayedMsg carries the result of a PlayTrack call (used when ⏎ is
-// pressed on a search result in the main pane). On error, the bottom error
-// footer surfaces it; on success, the next status tick reflects the new
+// playTrackResultMsg carries the result of a PlayTrack call dispatched by
+// the main pane ⏎ in mainPaneSearchResults mode. On error, the bottom error
+// footer surfaces it; on success the next status tick reflects the new
 // now-playing.
-type searchPlayedMsg struct {
-	seq uint64 // unused in the panel flow; kept for future symmetry
+type playTrackResultMsg struct {
 	err error
 }
 

@@ -158,7 +158,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focus = focusMain
 		return m, nil
 
-	case searchPlayedMsg:
+	case playTrackResultMsg:
 		if msg.err != nil {
 			m.lastError = msg.err
 			m.lastErrorAt = time.Now()
