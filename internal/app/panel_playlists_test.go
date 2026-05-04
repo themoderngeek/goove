@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/themoderngeek/goove/internal/domain"
+	"github.com/themoderngeek/goove/internal/music/fake"
 )
 
 func TestPlaylistsCursorDownMoves(t *testing.T) {
@@ -156,5 +158,52 @@ func TestPlaylistTracksMsgClearsFetchingForOnError(t *testing.T) {
 	}
 	if _, exists := got.playlists.tracksByName["B"]; exists {
 		t.Error("tracksByName must not be written on error")
+	}
+}
+
+func TestPlaylistsEnterPlaysHighlightedPlaylistFromTrackZero(t *testing.T) {
+	c := fake.New()
+	c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "A"}, {Name: "B"}})
+	m := New(c, nil)
+	m.focusZ = focusPlaylists
+	m.playlists.items = []domain.Playlist{{Name: "A"}, {Name: "B"}}
+	m.playlists.cursor = 1
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	out := cmd()
+	if _, ok := out.(playPlaylistMsg); !ok {
+		t.Fatalf("cmd produced %T; want playPlaylistMsg", out)
+	}
+	if c.PlayPlaylistCalls != 1 {
+		t.Errorf("PlayPlaylist calls = %d; want 1", c.PlayPlaylistCalls)
+	}
+	rec := c.PlayPlaylistRecord()
+	if len(rec) == 0 || rec[0].Name != "B" {
+		t.Errorf("LastPlayPlaylistName = %q; want B", func() string {
+			if len(rec) > 0 {
+				return rec[0].Name
+			}
+			return ""
+		}())
+	}
+	if len(rec) == 0 || rec[0].FromIdx != 0 {
+		t.Errorf("LastPlayPlaylistFromIdx = %d; want 0", func() int {
+			if len(rec) > 0 {
+				return rec[0].FromIdx
+			}
+			return -1
+		}())
+	}
+}
+
+func TestPlaylistsEnterIsNoOpWhenEmpty(t *testing.T) {
+	m := newTestModel()
+	m.focusZ = focusPlaylists
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Errorf("expected no Cmd with empty list, got %T", cmd())
 	}
 }

@@ -80,6 +80,12 @@ func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 			return mm, cmd, true
 		}
 		return m, nil, true
+	case "enter":
+		if len(m.playlists.items) == 0 {
+			return m, nil, true
+		}
+		name := m.playlists.items[m.playlists.cursor].Name
+		return m, playPlaylist(m.client, name, 0), true
 	}
 	return m, nil, false
 }
