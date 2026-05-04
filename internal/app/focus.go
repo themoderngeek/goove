@@ -12,12 +12,16 @@ const (
 	focusMain
 )
 
+// numFocusPanels is the number of focusable panels — used by nextFocus /
+// prevFocus to wrap the cycle. If a panel is added here, update this too.
+const numFocusPanels = 4
+
 // nextFocus cycles forward through Playlists → Search → Output → Main → Playlists.
 func nextFocus(f focus) focus {
-	return (f + 1) % 4
+	return (f + 1) % numFocusPanels
 }
 
-// prevFocus cycles backward.
+// prevFocus cycles backward through Main → Output → Search → Playlists → Main.
 func prevFocus(f focus) focus {
-	return (f + 3) % 4
+	return (f + numFocusPanels - 1) % numFocusPanels
 }
