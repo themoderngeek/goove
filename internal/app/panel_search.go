@@ -17,6 +17,10 @@ func renderSearchPanel(m Model, width, height int) string {
 
 func renderSearchBody(m Model) string {
 	switch {
+	case m.search2.inputMode && m.search2.err != nil:
+		// Error during the most recent search; query preserved so user can
+		// press Enter to retry.
+		return titleStyle.Render("/"+m.search2.query+"_") + "\n" + errorStyle.Render("error: "+m.search2.err.Error())
 	case m.search2.inputMode && m.search2.loading:
 		return titleStyle.Render("/"+m.search2.query) + "\n" + subtitleStyle.Render("searching…")
 	case m.search2.inputMode:

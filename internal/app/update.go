@@ -153,13 +153,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil // stale
 		}
 		m.search2.loading = false
+		if msg.err != nil {
+			// Preserve inputMode + query so the user can press Enter to retry.
+			// lastQuery and total stay unchanged so we don't pollute the "done"
+			// render with stale data from a prior successful search.
+			m.search2.err = msg.err
+			return m, nil
+		}
+		m.search2.err = nil
 		m.search2.inputMode = false
 		m.search2.lastQuery = msg.query
 		m.search2.total = msg.result.Total
-		m.search2.err = msg.err
-		if msg.err != nil {
-			return m, nil
-		}
 		// Land results in main pane.
 		m.main.mode = mainPaneSearchResults
 		m.main.searchResults = domain.RankSearchResults(msg.result.Tracks, msg.query)

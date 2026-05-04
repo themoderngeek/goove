@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -149,5 +150,33 @@ func TestSearchPanelEnterEmptyQueryNoOp(t *testing.T) {
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Errorf("expected no Cmd on empty query, got %T", cmd())
+	}
+}
+
+func TestSearchPanelResultsMsgErrorPreservesInputModeAndQuery(t *testing.T) {
+	m := newTestModel()
+	m.search2.seq = 5
+	m.search2.query = "stair"
+	m.search2.inputMode = true
+	m.search2.loading = true
+	updated, _ := m.Update(searchPanelResultsMsg{seq: 5, query: "stair", err: errors.New("boom")})
+	got := updated.(Model)
+	if !got.search2.inputMode {
+		t.Error("inputMode should be preserved on error so user can retry")
+	}
+	if got.search2.query != "stair" {
+		t.Errorf("query = %q; want preserved 'stair'", got.search2.query)
+	}
+	if got.search2.err == nil {
+		t.Error("err should be set")
+	}
+	if got.search2.loading {
+		t.Error("loading should be cleared")
+	}
+	if got.search2.lastQuery != "" {
+		t.Errorf("lastQuery should NOT be written on error, got %q", got.search2.lastQuery)
+	}
+	if got.main.mode == mainPaneSearchResults {
+		t.Error("main pane should not flip to search-results on error")
 	}
 }
