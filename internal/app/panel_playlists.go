@@ -59,6 +59,11 @@ func onFocusPlaylists(m Model) (Model, tea.Cmd) {
 // handlePlaylistsKey routes keys when focusZ == focusPlaylists. Returns
 // (model, cmd, handled). When handled is false, the caller falls through to
 // globals.
+//
+// onPlaylistsCursorChanged is intentionally inside the cursor-move guards —
+// when the cursor is clamped at a boundary, no side effects fire. Task 12
+// adds a track-fetch Cmd here, and we don't want to refetch when the user
+// presses j repeatedly at the bottom of the list.
 func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	switch msg.String() {
 	case "up", "k":
@@ -77,17 +82,25 @@ func handlePlaylistsKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-// onPlaylistsCursorChanged updates the main pane's selected playlist (live
-// preview, Q3-C) and resets the main pane cursor. Track-fetch wiring is
-// added in the next task.
+// onPlaylistsCursorChanged keeps the main pane's "selected playlist" pointer
+// in sync with the Playlists cursor (live preview, Q3-C). When the main pane
+// is in tracks mode, the cursor also resets to the top of the new list.
+//
+// We deliberately do NOT clobber main.mode or main.cursor when the pane is
+// in mainPaneSearchResults mode — the user's search results are sticky until
+// they dismiss them (Esc in main pane, Task 21). selectedPlaylist still
+// updates so that Esc lands on the currently-cursor'd playlist's tracks.
+//
+// Track-fetch wiring is added in the next task.
 func onPlaylistsCursorChanged(m Model) Model {
 	if len(m.playlists.items) == 0 {
 		return m
 	}
 	name := m.playlists.items[m.playlists.cursor].Name
 	m.main.selectedPlaylist = name
-	m.main.cursor = 0
-	m.main.mode = mainPaneTracks
+	if m.main.mode == mainPaneTracks {
+		m.main.cursor = 0
+	}
 	return m
 }
 
