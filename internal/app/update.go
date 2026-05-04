@@ -319,7 +319,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if m.picker != nil || m.mode == modeBrowser {
 			return m, nil
 		}
-		m.search = &searchState{}
+		// seq starts at 1 — see Task 15 review notes: a stray playTrack
+		// result with the zero-value seq must not pass the modal's stale-seq gate.
+		m.search = &searchState{seq: 1}
 		return m, nil
 	}
 	return m, nil

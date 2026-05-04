@@ -149,6 +149,9 @@ func handleMainKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd, bool) {
 			}
 			return m, playPlaylist(m.client, m.main.selectedPlaylist, m.main.cursor), true
 		case mainPaneSearchResults:
+			if m.main.cursor < 0 || m.main.cursor >= len(tracks) {
+				return m, nil, true
+			}
 			pid := tracks[m.main.cursor].PersistentID
 			return m, playTrack(m.client, pid), true
 		}
