@@ -247,3 +247,128 @@ func TestRenderUpNextCapsAtAvailableRows(t *testing.T) {
 		t.Errorf("third upcoming track should be capped out: %q", got)
 	}
 }
+
+// fakeArt builds a synthetic art string of the given height — height lines
+// of "ART" each. Used to drive the art-vs-text height comparison in the
+// Now Playing panel without depending on chafa output.
+func fakeArt(height int) string {
+	rows := make([]string, height)
+	for i := range rows {
+		rows[i] = "ART"
+	}
+	return strings.Join(rows, "\n")
+}
+
+func TestNowPlayingShowsUpNextWhenArtTallerThanText(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Liked Songs",
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArt(15)}
+	m.playlists.tracksByName["Liked Songs"] = []domain.Track{
+		{Title: "Cur", PersistentID: "PID-1"},
+		{Title: "NextTrack", Artist: "A", PersistentID: "PID-2"},
+	}
+	got := renderNowPlayingPanel(m, m.width)
+	if !strings.Contains(got, "Up Next") {
+		t.Errorf("expected Up Next header in output: %q", got)
+	}
+	if !strings.Contains(got, "NextTrack") {
+		t.Errorf("expected upcoming track 'NextTrack': %q", got)
+	}
+}
+
+func TestNowPlayingHidesUpNextInNarrowMode(t *testing.T) {
+	m := newTestModel()
+	m.width = 50 // < artLayoutThreshold
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Liked Songs",
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArt(15)}
+	m.playlists.tracksByName["Liked Songs"] = []domain.Track{
+		{Title: "Cur", PersistentID: "PID-1"},
+		{Title: "NextTrack", Artist: "A", PersistentID: "PID-2"},
+	}
+	got := renderNowPlayingPanel(m, m.width)
+	if strings.Contains(got, "Up Next") {
+		t.Errorf("Up Next should be hidden in narrow mode: %q", got)
+	}
+}
+
+func TestNowPlayingHidesUpNextWhenArtIsShort(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Liked Songs",
+	}}
+	// art shorter than the text content (text is ~7 lines).
+	m.art = artState{key: trackKey(track), output: fakeArt(3)}
+	m.playlists.tracksByName["Liked Songs"] = []domain.Track{
+		{Title: "Cur", PersistentID: "PID-1"},
+		{Title: "NextTrack", PersistentID: "PID-2"},
+	}
+	got := renderNowPlayingPanel(m, m.width)
+	if strings.Contains(got, "Up Next") {
+		t.Errorf("Up Next should be hidden when art shorter than text: %q", got)
+	}
+}
+
+func TestNowPlayingShowsShufflePlaceholder(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Liked Songs",
+		ShuffleEnabled:      true,
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArt(15)}
+	got := renderNowPlayingPanel(m, m.width)
+	if !strings.Contains(got, "shuffling") {
+		t.Errorf("expected shuffle placeholder: %q", got)
+	}
+}
+
+func TestNowPlayingShowsNoQueueWhenNoPlaylistContext(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "",
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArt(15)}
+	got := renderNowPlayingPanel(m, m.width)
+	if !strings.Contains(got, "no queue") {
+		t.Errorf("expected 'no queue' placeholder: %q", got)
+	}
+}
+
+func TestNowPlayingShowsLoadingWhenCacheMiss(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Recents",
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArt(15)}
+	// Recents not in tracksByName, fetchingFor empty.
+	got := renderNowPlayingPanel(m, m.width)
+	if !strings.Contains(got, "loading") {
+		t.Errorf("expected 'loading' placeholder: %q", got)
+	}
+}

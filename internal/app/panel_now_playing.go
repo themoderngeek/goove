@@ -27,7 +27,7 @@ func renderNowPlayingPanel(m Model, width int) string {
 		if m.art.key == trackKey(s.Now.Track) {
 			art = m.art.output
 		}
-		body = renderConnectedCardOnly(s, art, width)
+		body = renderConnectedCardOnly(s, art, width, m.playlists)
 	case Idle:
 		body = renderIdleCard(s.Volume)
 	case Disconnected:
@@ -40,9 +40,38 @@ func renderNowPlayingPanel(m Model, width int) string {
 }
 
 // renderConnectedCardOnly returns just the body content (no border wrapper).
-// view.go composes the footer separately. Same content as renderConnectedCard
-// but no margin wrapping (the parent does that).
-func renderConnectedCardOnly(s Connected, art string, width int) string {
+// view.go composes the footer separately.
+//
+// Layout dispatch:
+//   - narrow (width < artLayoutThreshold) or no art → text-only, today's behaviour.
+//   - art present and tall enough to host Up Next → top-aligned join of
+//     art and (text + Up Next), so Up Next anchors against the bottom of
+//     the art and the text starts at the top.
+//   - art present but no room for Up Next (art_height − text_height − 1 < 1)
+//     → centered art+text join, today's behaviour, Up Next suppressed.
+func renderConnectedCardOnly(s Connected, art string, width int, panel playlistsPanel) string {
+	text := buildNowPlayingText(s)
+	if width < artLayoutThreshold || art == "" {
+		return text
+	}
+
+	artHeight := lipgloss.Height(art)
+	textHeight := lipgloss.Height(text)
+	queueRows := artHeight - textHeight - 1 // -1 for the "─ Up Next ─" header
+	colWidth := rightColumnWidth(width, art)
+	upNext := renderUpNext(s.Now, panel, queueRows, colWidth)
+	if upNext == "" {
+		// No room or no Up Next applicable — fall back to centered layout.
+		return lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", text)
+	}
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, text, upNext)
+	return lipgloss.JoinHorizontal(lipgloss.Top, art, "  ", rightCol)
+}
+
+// buildNowPlayingText returns the title/artist/album/progress/volume block
+// — the right-column content above any Up Next list. Identical to what
+// renderConnectedCardOnly used to emit verbatim, just extracted.
+func buildNowPlayingText(s Connected) string {
 	pos := s.Now.DisplayedPosition(time.Now())
 	var b strings.Builder
 
@@ -67,11 +96,18 @@ func renderConnectedCardOnly(s Connected, art string, width int) string {
 	b.WriteString(volumeBar(s.Now.Volume, volumeBarWidth))
 	b.WriteString(fmt.Sprintf("   %d%%", s.Now.Volume))
 
-	content := b.String()
-	if width >= artLayoutThreshold && art != "" {
-		content = lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", content)
+	return b.String()
+}
+
+// rightColumnWidth returns the column width available to the right of the
+// album art for text + Up Next content. Subtracts the art's width and the
+// "  " gap between columns. Returns 0 if non-positive.
+func rightColumnWidth(panelContentWidth int, art string) int {
+	w := panelContentWidth - lipgloss.Width(art) - 2
+	if w < 0 {
+		return 0
 	}
-	return content
+	return w
 }
 
 func renderIdleCard(volume int) string {
