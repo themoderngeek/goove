@@ -192,6 +192,8 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	m.state = Connected{Now: msg.now}
 	m.lastVolume = msg.now.Volume
 
+	var cmds []tea.Cmd
+
 	// Track-change detection: fire a single fetchArtwork Cmd when:
 	//   - we have a renderer (chafa is available),
 	//   - the new track has a real identity (non-empty key),
@@ -200,9 +202,27 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	newKey := trackKey(msg.now.Track)
 	if m.renderer != nil && newKey != "" && newKey != m.art.key && !m.art.fetching {
 		m.art = artState{key: newKey, fetching: true}
-		return m, fetchArtwork(m.client, m.renderer, newKey)
+		cmds = append(cmds, fetchArtwork(m.client, m.renderer, newKey))
 	}
-	return m, nil
+
+	// Queue prefetch: fetch the playing playlist's tracks if we don't have
+	// them cached and aren't already fetching. Fires at most once per
+	// playlist-name change. Empty CurrentPlaylistName = no playlist context.
+	if name := msg.now.CurrentPlaylistName; name != "" {
+		if _, cached := m.playlists.tracksByName[name]; !cached && !m.playlists.fetchingFor[name] {
+			m.playlists.fetchingFor[name] = true
+			cmds = append(cmds, fetchPlaylistTracks(m.client, name))
+		}
+	}
+
+	switch len(cmds) {
+	case 0:
+		return m, nil
+	case 1:
+		return m, cmds[0]
+	default:
+		return m, tea.Batch(cmds...)
+	}
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {

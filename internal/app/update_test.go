@@ -659,3 +659,83 @@ func TestSlashIsNoOpInDisconnected(t *testing.T) {
 		t.Errorf("focusZ = %v; want focusPlaylists (no change in Disconnected)", got.focus)
 	}
 }
+
+func TestStatusMsgDispatchesQueuePrefetchWhenPlaylistUncached(t *testing.T) {
+	m := newTestModel()
+	// Pre-set lastVolume so handleStatus has a sensible state.
+	m.lastVolume = 50
+	np := domain.NowPlaying{
+		Track:               domain.Track{Title: "T", PersistentID: "PID-CUR"},
+		Volume:              50,
+		IsPlaying:           true,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: "Recents",
+	}
+	updated, cmd := m.Update(statusMsg{now: np})
+	got := updated.(Model)
+	if !got.playlists.fetchingFor["Recents"] {
+		t.Errorf("fetchingFor[Recents] = false; want true")
+	}
+	if cmd == nil {
+		t.Fatal("expected a Cmd, got nil")
+	}
+	// Configure the fake to return tracks for Recents so the Cmd's downstream
+	// PlaylistTracks call succeeds and the message is observable.
+	got.client.(*fake.Client).Launch(context.Background())
+	got.client.(*fake.Client).SetPlaylistTracks("Recents", []domain.Track{
+		{Title: "X", PersistentID: "PID-X"},
+	})
+	msg := cmd()
+	pmsg, ok := msg.(playlistTracksMsg)
+	if !ok {
+		t.Fatalf("Cmd produced %T; want playlistTracksMsg", msg)
+	}
+	if pmsg.name != "Recents" {
+		t.Errorf("playlistTracksMsg.name = %q; want Recents", pmsg.name)
+	}
+}
+
+func TestStatusMsgDoesNotDispatchWhenPlaylistAlreadyCached(t *testing.T) {
+	m := newTestModel()
+	m.playlists.tracksByName["Recents"] = []domain.Track{{Title: "X"}}
+	np := domain.NowPlaying{
+		Track:               domain.Track{Title: "T"},
+		Volume:              50,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: "Recents",
+	}
+	_, cmd := m.Update(statusMsg{now: np})
+	if cmd != nil {
+		// Allow only an artwork cmd (tests use renderer == nil so artwork is skipped).
+		t.Errorf("expected nil Cmd (no prefetch, no artwork), got %T", cmd)
+	}
+}
+
+func TestStatusMsgDoesNotDispatchWhenAlreadyFetching(t *testing.T) {
+	m := newTestModel()
+	m.playlists.fetchingFor["Recents"] = true
+	np := domain.NowPlaying{
+		Track:               domain.Track{Title: "T"},
+		Volume:              50,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: "Recents",
+	}
+	_, cmd := m.Update(statusMsg{now: np})
+	if cmd != nil {
+		t.Errorf("expected nil Cmd; got %T", cmd)
+	}
+}
+
+func TestStatusMsgDoesNotDispatchWhenNoPlaylistContext(t *testing.T) {
+	m := newTestModel()
+	np := domain.NowPlaying{
+		Track:               domain.Track{Title: "T"},
+		Volume:              50,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: "",
+	}
+	_, cmd := m.Update(statusMsg{now: np})
+	if cmd != nil {
+		t.Errorf("expected nil Cmd; got %T", cmd)
+	}
+}
