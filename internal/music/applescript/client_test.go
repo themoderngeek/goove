@@ -97,7 +97,7 @@ func TestRunnerPermissionStderrMapsToErrPermission(t *testing.T) {
 }
 
 func TestStatusParsesRunnerOutput(t *testing.T) {
-	r := &fakeRunner{out: []byte("T\nA\nAlb\n10.0\n200.0\nplaying\n80\n")}
+	r := &fakeRunner{out: []byte("T\nA\nAlb\n10.0\n200.0\nplaying\n80\nPID\nfalse\nPlaylist\n")}
 	c := New(r)
 
 	np, err := c.Status(context.Background())

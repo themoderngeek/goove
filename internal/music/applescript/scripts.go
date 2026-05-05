@@ -13,10 +13,19 @@ const scriptLaunch = `tell application "Music" to launch`
 // scriptStatus returns one of:
 //   - "NOT_RUNNING"
 //   - "NO_TRACK"
-//   - 7 newline-separated lines: title, artist, album, position, duration, state, volume
+//   - 10 newline-separated lines: title, artist, album, position, duration,
+//     state, volume, persistent ID, shuffle ("true"/"false"), current playlist
+//     name (may be empty when no playlist context).
 //
 // NOTE: linefeed (U+000A) is the field delimiter. Track metadata containing a
 // literal newline will corrupt the parsed output. Accepted as an MVP limitation.
+//
+// "shuffle enabled" is read off `application "Music"` (modern Music.app
+// exposes it there). If a future macOS only exposes it on `current playlist`,
+// the snippet pivots; the Go signature is unchanged.
+//
+// "current playlist" errors when nothing is playing in a playlist context
+// (e.g. a track played via PlayTrack); the inner try traps that to "".
 const scriptStatus = `tell application "Music"
 	if not running then return "NOT_RUNNING"
 	try
@@ -32,7 +41,15 @@ const scriptStatus = `tell application "Music"
 	set dur to (duration of t as text)
 	set xstate to (player state as text)
 	set vol to (sound volume as text)
-	return ttl & linefeed & art & linefeed & alb & linefeed & pos & linefeed & dur & linefeed & xstate & linefeed & vol
+	set pid to (persistent ID of t) as text
+	set shuf to (shuffle enabled as text)
+	set plName to ""
+	try
+		set plName to (name of current playlist) as text
+	on error
+		set plName to ""
+	end try
+	return ttl & linefeed & art & linefeed & alb & linefeed & pos & linefeed & dur & linefeed & xstate & linefeed & vol & linefeed & pid & linefeed & shuf & linefeed & plName
 end tell`
 
 const scriptPlayPause = `tell application "Music" to playpause`
