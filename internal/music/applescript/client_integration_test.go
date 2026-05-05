@@ -185,3 +185,39 @@ func TestIntegrationSearchTracks_Smoke(t *testing.T) {
 	// PlayTrack is intentionally not exercised here — calling it in an
 	// integration test would interrupt the user's active playback.
 }
+
+func TestIntegrationStatusReturnsQueueContextFields(t *testing.T) {
+	c := NewDefault()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	running, err := c.IsRunning(ctx)
+	if err != nil {
+		t.Fatalf("IsRunning err = %v", err)
+	}
+	if !running {
+		t.Skip("Music.app is not running; cannot exercise Status queue fields")
+	}
+
+	np, err := c.Status(ctx)
+	if err != nil {
+		// ErrNoTrack is acceptable — Music is open with nothing loaded; we
+		// can't validate queue fields without a playing track. Skip rather
+		// than fail.
+		t.Skipf("Status returned %v; queue field test needs a loaded track", err)
+	}
+
+	// Track.PersistentID must be populated for any library track. Streamed
+	// catalog tracks may have empty IDs in some macOS versions; log+skip
+	// rather than fail in that case.
+	if np.Track.PersistentID == "" {
+		t.Skipf("Track.PersistentID empty (track may be a non-library stream): %+v", np.Track)
+	}
+	t.Logf("Track.PersistentID = %q", np.Track.PersistentID)
+
+	// CurrentPlaylistName may legitimately be empty when the user is
+	// playing a track outside any playlist context (e.g. via PlayTrack from
+	// search). Log either way; the assertion is that parsing succeeded.
+	t.Logf("CurrentPlaylistName = %q", np.CurrentPlaylistName)
+	t.Logf("ShuffleEnabled = %v", np.ShuffleEnabled)
+}
