@@ -172,7 +172,7 @@ end tell`
 // scriptPlaylistTracks returns one tab-separated line per track of the named
 // playlist:
 //
-//	title\tartist\talbum\tduration_seconds
+//	title\tartist\talbum\tduration_seconds\tpersistent_id
 //
 // %s is the EXACT playlist name. Returns "NOT_RUNNING" if Music isn't running,
 // "NOT_FOUND" if no playlist with that name exists.
@@ -204,7 +204,7 @@ const scriptPlaylistTracks = `tell application "Music"
 	set thePlaylist to item 1 of matches
 	set out to ""
 	repeat with t in tracks of thePlaylist
-		set ln to (name of t) & tab & (artist of t) & tab & (album of t) & tab & ((duration of t) as text)
+		set ln to (name of t) & tab & (artist of t) & tab & (album of t) & tab & ((duration of t) as text) & tab & (persistent ID of t)
 		if out is "" then
 			set out to ln
 		else

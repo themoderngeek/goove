@@ -353,7 +353,7 @@ func TestParsePlaylistTracksNotFound(t *testing.T) {
 }
 
 func TestParsePlaylistTracksSingle(t *testing.T) {
-	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\n"
+	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\tPID-A\n"
 	got, err := parsePlaylistTracks(raw)
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -362,10 +362,11 @@ func TestParsePlaylistTracksSingle(t *testing.T) {
 		t.Fatalf("len = %d; want 1", len(got))
 	}
 	want := domain.Track{
-		Title:    "Stairway to Heaven",
-		Artist:   "Led Zeppelin",
-		Album:    "Led Zeppelin IV",
-		Duration: 482 * time.Second,
+		Title:        "Stairway to Heaven",
+		Artist:       "Led Zeppelin",
+		Album:        "Led Zeppelin IV",
+		Duration:     482 * time.Second,
+		PersistentID: "PID-A",
 	}
 	if got[0] != want {
 		t.Errorf("got[0] = %+v; want %+v", got[0], want)
@@ -373,9 +374,9 @@ func TestParsePlaylistTracksSingle(t *testing.T) {
 }
 
 func TestParsePlaylistTracksMultiple(t *testing.T) {
-	raw := "A\tArtist\tAlbum\t100\n" +
-		"B\tArtist\tAlbum\t200\n" +
-		"C\tArtist\tAlbum\t300"
+	raw := "A\tArtist\tAlbum\t100\tPID-A\n" +
+		"B\tArtist\tAlbum\t200\tPID-B\n" +
+		"C\tArtist\tAlbum\t300\tPID-C"
 	got, err := parsePlaylistTracks(raw)
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -389,10 +390,28 @@ func TestParsePlaylistTracksMultiple(t *testing.T) {
 }
 
 func TestParsePlaylistTracksSkipsMalformedRow(t *testing.T) {
-	raw := "BadRow\tArtist\tAlbum\n" + "Good\tArtist\tAlbum\t100\n"
+	raw := "BadRow\tArtist\tAlbum\n" + "Good\tArtist\tAlbum\t100\tPID-G\n"
 	got, _ := parsePlaylistTracks(raw)
 	if len(got) != 1 || got[0].Title != "Good" {
 		t.Errorf("got = %+v; expected malformed row to be skipped", got)
+	}
+}
+
+func TestParsePlaylistTracksPopulatesPersistentID(t *testing.T) {
+	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\tPID-A\n" +
+		"Black Dog\tLed Zeppelin\tLed Zeppelin IV\t295\tPID-B\n"
+	got, err := parsePlaylistTracks(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d; want 2", len(got))
+	}
+	if got[0].PersistentID != "PID-A" {
+		t.Errorf("got[0].PersistentID = %q; want PID-A", got[0].PersistentID)
+	}
+	if got[1].PersistentID != "PID-B" {
+		t.Errorf("got[1].PersistentID = %q; want PID-B", got[1].PersistentID)
 	}
 }
 

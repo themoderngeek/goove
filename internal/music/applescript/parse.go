@@ -143,7 +143,7 @@ func parsePlaylists(raw string) ([]domain.Playlist, error) {
 }
 
 // parsePlaylistTracks parses the tab-separated output of scriptPlaylistTracks.
-// Each line has four fields: title, artist, album, duration_seconds.
+// Each line has five fields: title, artist, album, duration_seconds, persistent ID.
 //
 // NOT_RUNNING → music.ErrNotRunning. NOT_FOUND → music.ErrPlaylistNotFound.
 // Empty input returns an empty slice. Malformed rows (wrong field count or
@@ -162,7 +162,7 @@ func parsePlaylistTracks(raw string) ([]domain.Track, error) {
 	var tracks []domain.Track
 	for _, line := range strings.Split(trimmed, "\n") {
 		fields := strings.Split(line, "\t")
-		if len(fields) != 4 {
+		if len(fields) != 5 {
 			continue
 		}
 		secs, err := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
@@ -170,10 +170,11 @@ func parsePlaylistTracks(raw string) ([]domain.Track, error) {
 			continue
 		}
 		tracks = append(tracks, domain.Track{
-			Title:    fields[0],
-			Artist:   fields[1],
-			Album:    fields[2],
-			Duration: time.Duration(secs * float64(time.Second)),
+			Title:        fields[0],
+			Artist:       fields[1],
+			Album:        fields[2],
+			Duration:     time.Duration(secs * float64(time.Second)),
+			PersistentID: fields[4],
 		})
 	}
 	return tracks, nil

@@ -475,7 +475,7 @@ func TestPlaylistTracksRunsScriptWithName(t *testing.T) {
 }
 
 func TestPlaylistTracksParsesOutput(t *testing.T) {
-	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\nB\tArtist\tAlbum\t200\n")}
+	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\tPID-A\nB\tArtist\tAlbum\t200\tPID-B\n")}
 	c := New(r)
 
 	got, err := c.PlaylistTracks(context.Background(), "Liked Songs")
