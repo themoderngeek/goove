@@ -515,8 +515,8 @@ func TestStatusJSONShortFlagJEquivalent(t *testing.T) {
 		t.Errorf("exit = %d; want 0", code)
 	}
 	// Output must be valid JSON (not the plain-text format).
-	var any map[string]interface{}
-	if err := json.Unmarshal(stdout.Bytes(), &any); err != nil {
+	var got map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
 		t.Errorf("output is not valid JSON with -j: %v\n%q", err, stdout.String())
 	}
 }
