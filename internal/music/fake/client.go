@@ -47,6 +47,9 @@ type Client struct {
 	LaunchCalls       int
 	PlayPlaylistCalls int
 	PlayTrackCalls    int
+
+	currentPlaylistName string
+	shuffleEnabled      bool
 }
 
 // playPlaylistCall records one PlayPlaylist invocation.
@@ -71,6 +74,23 @@ func (c *Client) SetTrack(t domain.Track, durationSec, positionSec int, playing 
 	c.duration = time.Duration(durationSec) * time.Second
 	c.position = time.Duration(positionSec) * time.Second
 	c.playing = playing
+}
+
+// SetCurrentPlaylistName supplies the value the next Status call returns
+// as NowPlaying.CurrentPlaylistName. Used by Up Next queue tests to
+// simulate "playing from playlist X" vs "no playlist context".
+func (c *Client) SetCurrentPlaylistName(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.currentPlaylistName = name
+}
+
+// SetShuffleEnabled supplies the value the next Status call returns as
+// NowPlaying.ShuffleEnabled.
+func (c *Client) SetShuffleEnabled(on bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.shuffleEnabled = on
 }
 
 func (c *Client) SimulateError(err error) {
@@ -213,12 +233,14 @@ func (c *Client) Status(ctx context.Context) (domain.NowPlaying, error) {
 		return domain.NowPlaying{}, music.ErrNoTrack
 	}
 	return domain.NowPlaying{
-		Track:        c.track,
-		Position:     c.position,
-		Duration:     c.duration,
-		IsPlaying:    c.playing,
-		Volume:       c.volume,
-		LastSyncedAt: time.Now(),
+		Track:               c.track,
+		Position:            c.position,
+		Duration:            c.duration,
+		IsPlaying:           c.playing,
+		Volume:              c.volume,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: c.currentPlaylistName,
+		ShuffleEnabled:      c.shuffleEnabled,
 	}, nil
 }
 

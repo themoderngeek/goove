@@ -7,7 +7,7 @@ type Track struct {
 	Artist       string
 	Album        string
 	Duration     time.Duration // populated by playlist tracks; left zero for NowPlaying.Track
-	PersistentID string        // populated by search results; left empty elsewhere — Apple Music's stable per-library track handle, used by PlayTrack
+	PersistentID string        // populated by search results, playlist tracks, and the now-playing track. Apple Music's stable per-library track handle, used by PlayTrack and to locate the playing track inside its playlist for the Up Next view.
 }
 
 type NowPlaying struct {
@@ -17,6 +17,13 @@ type NowPlaying struct {
 	IsPlaying    bool
 	Volume       int
 	LastSyncedAt time.Time
+
+	// Queue context — populated by Status. CurrentPlaylistName is "" when
+	// there is no playlist context (e.g. a track played via PlayTrack from
+	// search results). May be the localised "Library" string when Music.app
+	// reports the master library; not special-cased.
+	CurrentPlaylistName string
+	ShuffleEnabled      bool
 }
 
 func (n NowPlaying) DisplayedPosition(now time.Time) time.Duration {

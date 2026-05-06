@@ -97,7 +97,7 @@ func TestRunnerPermissionStderrMapsToErrPermission(t *testing.T) {
 }
 
 func TestStatusParsesRunnerOutput(t *testing.T) {
-	r := &fakeRunner{out: []byte("T\nA\nAlb\n10.0\n200.0\nplaying\n80\n")}
+	r := &fakeRunner{out: []byte("T\nA\nAlb\n10.0\n200.0\nplaying\n80\nPID\nfalse\nPlaylist\n")}
 	c := New(r)
 
 	np, err := c.Status(context.Background())
@@ -475,7 +475,7 @@ func TestPlaylistTracksRunsScriptWithName(t *testing.T) {
 }
 
 func TestPlaylistTracksParsesOutput(t *testing.T) {
-	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\nB\tArtist\tAlbum\t200\n")}
+	r := &fakeRunner{out: []byte("A\tArtist\tAlbum\t100\tPID-A\nB\tArtist\tAlbum\t200\tPID-B\n")}
 	c := New(r)
 
 	got, err := c.PlaylistTracks(context.Background(), "Liked Songs")

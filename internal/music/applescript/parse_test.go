@@ -26,7 +26,7 @@ func TestParseStatusReturnsErrNoTrack(t *testing.T) {
 }
 
 func TestParseStatusParsesPlayingTrack(t *testing.T) {
-	raw := "Stairway to Heaven\nLed Zeppelin\nLed Zeppelin IV\n221.5\n482.0\nplaying\n75\n"
+	raw := "Stairway to Heaven\nLed Zeppelin\nLed Zeppelin IV\n221.5\n482.0\nplaying\n75\n\nfalse\n\n"
 	np, err := parseStatus(raw)
 	if err != nil {
 		t.Fatalf("parseStatus err = %v", err)
@@ -55,7 +55,7 @@ func TestParseStatusParsesPlayingTrack(t *testing.T) {
 }
 
 func TestParseStatusReadsPausedState(t *testing.T) {
-	raw := "T\nA\nB\n0.0\n100.0\npaused\n50\n"
+	raw := "T\nA\nB\n0.0\n100.0\npaused\n50\n\nfalse\n\n"
 	np, err := parseStatus(raw)
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -73,7 +73,7 @@ func TestParseStatusOnMalformedReturnsErrUnavailable(t *testing.T) {
 }
 
 func TestParseStatusOnNonNumericPositionReturnsErrUnavailable(t *testing.T) {
-	raw := "T\nA\nB\nNOT_A_NUMBER\n100\nplaying\n50\n"
+	raw := "T\nA\nB\nNOT_A_NUMBER\n100\nplaying\n50\n\nfalse\n\n"
 	_, err := parseStatus(raw)
 	if !errors.Is(err, music.ErrUnavailable) {
 		t.Fatalf("err = %v; want ErrUnavailable", err)
@@ -81,7 +81,7 @@ func TestParseStatusOnNonNumericPositionReturnsErrUnavailable(t *testing.T) {
 }
 
 func TestParseStatusHandlesCRLFLineEndings(t *testing.T) {
-	raw := "T\r\nA\r\nAlb\r\n10.0\r\n200.0\r\nplaying\r\n80\r\n"
+	raw := "T\r\nA\r\nAlb\r\n10.0\r\n200.0\r\nplaying\r\n80\r\nPID\r\nfalse\r\nP1\r\n"
 	np, err := parseStatus(raw)
 	if err != nil {
 		t.Fatalf("parseStatus err = %v", err)
@@ -103,6 +103,53 @@ func TestParseStatusHandlesCRLFOnSentinel(t *testing.T) {
 	}
 	if _, err := parseStatus("NO_TRACK\r\n"); !errors.Is(err, music.ErrNoTrack) {
 		t.Fatalf("err = %v; want ErrNoTrack", err)
+	}
+}
+
+func TestParseStatusPopulatesQueueFields(t *testing.T) {
+	raw := "Stairway to Heaven\nLed Zeppelin\nLed Zeppelin IV\n221.5\n482.0\nplaying\n75\nPID-XYZ\nfalse\nLiked Songs\n"
+	np, err := parseStatus(raw)
+	if err != nil {
+		t.Fatalf("parseStatus err = %v", err)
+	}
+	if np.Track.PersistentID != "PID-XYZ" {
+		t.Errorf("Track.PersistentID = %q; want %q", np.Track.PersistentID, "PID-XYZ")
+	}
+	if np.ShuffleEnabled {
+		t.Errorf("ShuffleEnabled = true; want false")
+	}
+	if np.CurrentPlaylistName != "Liked Songs" {
+		t.Errorf("CurrentPlaylistName = %q; want %q", np.CurrentPlaylistName, "Liked Songs")
+	}
+}
+
+func TestParseStatusReadsShuffleOn(t *testing.T) {
+	raw := "T\nA\nB\n0.0\n100.0\nplaying\n50\nPID\ntrue\nWorkout\n"
+	np, err := parseStatus(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if !np.ShuffleEnabled {
+		t.Errorf("ShuffleEnabled = false; want true")
+	}
+}
+
+func TestParseStatusEmptyPlaylistNameMeansNoContext(t *testing.T) {
+	raw := "T\nA\nB\n0.0\n100.0\nplaying\n50\nPID\nfalse\n\n"
+	np, err := parseStatus(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if np.CurrentPlaylistName != "" {
+		t.Errorf("CurrentPlaylistName = %q; want empty", np.CurrentPlaylistName)
+	}
+}
+
+func TestParseStatusOnlySevenLinesNowReturnsErrUnavailable(t *testing.T) {
+	raw := "T\nA\nB\n0.0\n100.0\nplaying\n50\n"
+	_, err := parseStatus(raw)
+	if !errors.Is(err, music.ErrUnavailable) {
+		t.Fatalf("err = %v; want ErrUnavailable", err)
 	}
 }
 
@@ -306,7 +353,7 @@ func TestParsePlaylistTracksNotFound(t *testing.T) {
 }
 
 func TestParsePlaylistTracksSingle(t *testing.T) {
-	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\n"
+	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\tPID-A\n"
 	got, err := parsePlaylistTracks(raw)
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -315,10 +362,11 @@ func TestParsePlaylistTracksSingle(t *testing.T) {
 		t.Fatalf("len = %d; want 1", len(got))
 	}
 	want := domain.Track{
-		Title:    "Stairway to Heaven",
-		Artist:   "Led Zeppelin",
-		Album:    "Led Zeppelin IV",
-		Duration: 482 * time.Second,
+		Title:        "Stairway to Heaven",
+		Artist:       "Led Zeppelin",
+		Album:        "Led Zeppelin IV",
+		Duration:     482 * time.Second,
+		PersistentID: "PID-A",
 	}
 	if got[0] != want {
 		t.Errorf("got[0] = %+v; want %+v", got[0], want)
@@ -326,9 +374,9 @@ func TestParsePlaylistTracksSingle(t *testing.T) {
 }
 
 func TestParsePlaylistTracksMultiple(t *testing.T) {
-	raw := "A\tArtist\tAlbum\t100\n" +
-		"B\tArtist\tAlbum\t200\n" +
-		"C\tArtist\tAlbum\t300"
+	raw := "A\tArtist\tAlbum\t100\tPID-A\n" +
+		"B\tArtist\tAlbum\t200\tPID-B\n" +
+		"C\tArtist\tAlbum\t300\tPID-C"
 	got, err := parsePlaylistTracks(raw)
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -342,10 +390,28 @@ func TestParsePlaylistTracksMultiple(t *testing.T) {
 }
 
 func TestParsePlaylistTracksSkipsMalformedRow(t *testing.T) {
-	raw := "BadRow\tArtist\tAlbum\n" + "Good\tArtist\tAlbum\t100\n"
+	raw := "BadRow\tArtist\tAlbum\n" + "Good\tArtist\tAlbum\t100\tPID-G\n"
 	got, _ := parsePlaylistTracks(raw)
 	if len(got) != 1 || got[0].Title != "Good" {
 		t.Errorf("got = %+v; expected malformed row to be skipped", got)
+	}
+}
+
+func TestParsePlaylistTracksPopulatesPersistentID(t *testing.T) {
+	raw := "Stairway to Heaven\tLed Zeppelin\tLed Zeppelin IV\t482\tPID-A\n" +
+		"Black Dog\tLed Zeppelin\tLed Zeppelin IV\t295\tPID-B\n"
+	got, err := parsePlaylistTracks(raw)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d; want 2", len(got))
+	}
+	if got[0].PersistentID != "PID-A" {
+		t.Errorf("got[0].PersistentID = %q; want PID-A", got[0].PersistentID)
+	}
+	if got[1].PersistentID != "PID-B" {
+		t.Errorf("got[1].PersistentID = %q; want PID-B", got[1].PersistentID)
 	}
 }
 

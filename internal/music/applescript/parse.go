@@ -12,7 +12,11 @@ import (
 	"github.com/themoderngeek/goove/internal/music"
 )
 
-// parseStatus parses the seven-line output of scriptStatus into a NowPlaying.
+// parseStatus parses the ten-line output of scriptStatus into a NowPlaying.
+// Lines (zero-indexed): 0=title, 1=artist, 2=album, 3=position, 4=duration,
+// 5=state, 6=volume, 7=persistent ID (may be empty), 8=shuffle ("true"/"false"),
+// 9=current playlist name (may be empty when no playlist context).
+//
 // Special sentinels NOT_RUNNING and NO_TRACK are mapped to the corresponding
 // sentinel errors. LastSyncedAt is left zero — the caller stamps it.
 func parseStatus(raw string) (domain.NowPlaying, error) {
@@ -25,11 +29,20 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 		return domain.NowPlaying{}, music.ErrNoTrack
 	}
 
-	lines := strings.Split(trimmed, "\n")
-	if len(lines) != 7 {
-		return domain.NowPlaying{}, fmt.Errorf("%w: expected 7 lines, got %d", music.ErrUnavailable, len(lines))
+	// Don't TrimSpace the whole blob before splitting — trailing empty lines
+	// (which are legitimate field values for empty playlist name) would be
+	// dropped. Split on newline first, then trim each line.
+	rawClean := strings.ReplaceAll(raw, "\r\n", "\n")
+	// Drop only the single trailing newline AppleScript emits, not all of them.
+	// The last field (playlist name) may be empty; if so, there's an empty string
+	// before the final \n that must be preserved.
+	if strings.HasSuffix(rawClean, "\n") {
+		rawClean = rawClean[:len(rawClean)-1]
 	}
-
+	lines := strings.Split(rawClean, "\n")
+	if len(lines) != 10 {
+		return domain.NowPlaying{}, fmt.Errorf("%w: expected 10 lines, got %d", music.ErrUnavailable, len(lines))
+	}
 	for i := range lines {
 		lines[i] = strings.TrimSpace(lines[i])
 	}
@@ -49,14 +62,17 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 
 	return domain.NowPlaying{
 		Track: domain.Track{
-			Title:  lines[0],
-			Artist: lines[1],
-			Album:  lines[2],
+			Title:        lines[0],
+			Artist:       lines[1],
+			Album:        lines[2],
+			PersistentID: lines[7],
 		},
-		Position:  time.Duration(posSec * float64(time.Second)),
-		Duration:  time.Duration(durSec * float64(time.Second)),
-		IsPlaying: lines[5] == "playing",
-		Volume:    vol,
+		Position:            time.Duration(posSec * float64(time.Second)),
+		Duration:            time.Duration(durSec * float64(time.Second)),
+		IsPlaying:           lines[5] == "playing",
+		Volume:              vol,
+		ShuffleEnabled:      lines[8] == "true",
+		CurrentPlaylistName: lines[9],
 	}, nil
 }
 
@@ -127,7 +143,7 @@ func parsePlaylists(raw string) ([]domain.Playlist, error) {
 }
 
 // parsePlaylistTracks parses the tab-separated output of scriptPlaylistTracks.
-// Each line has four fields: title, artist, album, duration_seconds.
+// Each line has five fields: title, artist, album, duration_seconds, persistent ID.
 //
 // NOT_RUNNING → music.ErrNotRunning. NOT_FOUND → music.ErrPlaylistNotFound.
 // Empty input returns an empty slice. Malformed rows (wrong field count or
@@ -146,7 +162,7 @@ func parsePlaylistTracks(raw string) ([]domain.Track, error) {
 	var tracks []domain.Track
 	for _, line := range strings.Split(trimmed, "\n") {
 		fields := strings.Split(line, "\t")
-		if len(fields) != 4 {
+		if len(fields) != 5 {
 			continue
 		}
 		secs, err := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
@@ -154,10 +170,11 @@ func parsePlaylistTracks(raw string) ([]domain.Track, error) {
 			continue
 		}
 		tracks = append(tracks, domain.Track{
-			Title:    fields[0],
-			Artist:   fields[1],
-			Album:    fields[2],
-			Duration: time.Duration(secs * float64(time.Second)),
+			Title:        fields[0],
+			Artist:       fields[1],
+			Album:        fields[2],
+			Duration:     time.Duration(secs * float64(time.Second)),
+			PersistentID: fields[4],
 		})
 	}
 	return tracks, nil
