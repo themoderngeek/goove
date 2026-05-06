@@ -24,7 +24,7 @@ func scheduleStatusTick() tea.Cmd {
 
 // scheduleRepaintTick produces a Cmd that emits a repaintMsg after 250ms.
 func scheduleRepaintTick() tea.Cmd {
-	return tea.Tick(repaintInterval, func(t time.Time) tea.Msg { return repaintMsg{} })
+	return tea.Tick(repaintInterval, func(_ time.Time) tea.Msg { return repaintMsg{} })
 }
 
 // fetchStatus runs Status() in a goroutine and emits a statusMsg with the result.

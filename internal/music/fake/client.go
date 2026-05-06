@@ -123,7 +123,7 @@ func (c *Client) SetDevices(devices []domain.AudioDevice) {
 }
 
 // AirPlayDevices implements music.Client.
-func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error) {
+func (c *Client) AirPlayDevices(_ context.Context) ([]domain.AudioDevice, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
@@ -140,7 +140,7 @@ func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, erro
 
 // CurrentAirPlayDevice implements music.Client. Returns the device with
 // Selected=true, or ErrDeviceNotFound if no device is selected.
-func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error) {
+func (c *Client) CurrentAirPlayDevice(_ context.Context) (domain.AudioDevice, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
@@ -160,7 +160,7 @@ func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, 
 // SetAirPlayDevice implements music.Client. Updates the Selected flag in-place:
 // the named device becomes Selected=true, all others become Selected=false.
 // Returns ErrDeviceNotFound if no device with the exact name exists.
-func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
+func (c *Client) SetAirPlayDevice(_ context.Context, name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
