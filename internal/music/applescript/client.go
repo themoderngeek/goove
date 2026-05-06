@@ -16,9 +16,11 @@ import (
 )
 
 const (
-	callTimeout   = 2 * time.Second
+	callTimeout = 2 * time.Second
 	// Empirically: a 133-track library search measured ~8.5s; budget here is generous to protect users with much larger libraries.
 	searchTimeout = 30 * time.Second
+	// Empirically: a 25-track playlist round-tripped via "repeat with t in tracks" measured ~2s for 4 properties per track and ~2.4s for 5 properties (with persistent ID); larger playlists scale accordingly. callTimeout's 2s is consistently too tight; the search budget covers worst-case real libraries.
+	playlistTracksTimeout = 30 * time.Second
 )
 
 // applescriptEscape escapes embedded double-quote and backslash characters so
@@ -232,9 +234,11 @@ func (c *Client) Playlists(ctx context.Context) ([]domain.Playlist, error) {
 	return parsePlaylists(string(out))
 }
 
-// PlaylistTracks implements music.Client.
+// PlaylistTracks implements music.Client. Uses playlistTracksTimeout (not the
+// default callTimeout) because per-track property reads on real libraries
+// routinely take 2+ seconds for non-trivial playlists.
 func (c *Client) PlaylistTracks(ctx context.Context, playlistName string) ([]domain.Track, error) {
-	out, err := c.run(ctx, fmt.Sprintf(scriptPlaylistTracks, playlistName))
+	out, err := c.runWithTimeout(ctx, fmt.Sprintf(scriptPlaylistTracks, playlistName), playlistTracksTimeout)
 	if err != nil {
 		return nil, err
 	}
