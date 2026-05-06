@@ -278,6 +278,68 @@ func fakeArt(height int) string {
 	return strings.Join(rows, "\n")
 }
 
+// fakeArtWide builds a synthetic art string with width-realistic rows
+// (matching chafa's --size 20x10 output width).
+func fakeArtWide(height int) string {
+	rows := make([]string, height)
+	for i := range rows {
+		rows[i] = strings.Repeat("█", 20)
+	}
+	return strings.Join(rows, "\n")
+}
+
+// Regression: the Up Next header was being padded to a width that exceeded
+// the panel's content area, causing lipgloss inside panelBox to wrap the
+// trailing "─" characters onto a new line — visible as a horizontal line
+// crossing the rendered panel through the album art region. The body
+// rendered by renderConnectedCardOnly must fit inside the panel's content
+// area (panelBox internals: width - 4 for border + padding) so panelBox
+// doesn't introduce any wrapped overflow rows.
+//
+// Assertion: the rendered panel has exactly the expected number of rows
+// (1 top border + body height + 1 bottom border). With art height 10 and
+// text height 7, body should be 10 rows. Any wrapping introduces an extra
+// row, failing this check.
+func TestNowPlayingBodyHasNoWrappedOverflow(t *testing.T) {
+	m := newTestModel()
+	m.width = 100
+	track := domain.Track{Title: "Cur", Artist: "A", Album: "Al", PersistentID: "PID-1"}
+	m.state = Connected{Now: domain.NowPlaying{
+		Track:               track,
+		Volume:              50,
+		CurrentPlaylistName: "Liked Songs",
+	}}
+	m.art = artState{key: trackKey(track), output: fakeArtWide(10)}
+	m.playlists.tracksByName["Liked Songs"] = []domain.Track{
+		{Title: "Cur", PersistentID: "PID-1"},
+		{Title: "NextTrack", Artist: "A", PersistentID: "PID-2"},
+	}
+	got := renderNowPlayingPanel(m, m.width)
+	lines := strings.Split(got, "\n")
+	// 10 art rows + 2 border rows = 12; queue text+upNext = 9 rows ≤ art.
+	wantRows := 12
+	if len(lines) != wantRows {
+		t.Errorf("rendered panel has %d rows, want %d (extra rows = wrapped overflow):\n%s",
+			len(lines), wantRows, got)
+	}
+	// Sanity: no body line should be only "─" characters mixed with spaces
+	// (the wrapped-overflow pattern is a row of trailing header dashes).
+	for i, line := range lines {
+		stripped := strings.TrimSpace(line)
+		// Skip top/bottom border which legitimately is all "─" between corners.
+		if i == 0 || i == len(lines)-1 {
+			continue
+		}
+		// Body rows start with "│" (panel border). A body row whose interior
+		// is solely "─" + spaces is a wrapped Up-Next-header overflow.
+		interior := strings.TrimRight(strings.TrimPrefix(stripped, "│"), "│")
+		interior = strings.TrimSpace(interior)
+		if len(interior) > 0 && strings.Trim(interior, "─") == "" {
+			t.Errorf("row %d interior is solely box-drawing dashes (header overflow): %q", i+1, line)
+		}
+	}
+}
+
 func TestNowPlayingShowsUpNextWhenArtTallerThanText(t *testing.T) {
 	m := newTestModel()
 	m.width = 100

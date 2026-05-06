@@ -100,10 +100,17 @@ func buildNowPlayingText(s Connected) string {
 }
 
 // rightColumnWidth returns the column width available to the right of the
-// album art for text + Up Next content. Subtracts the art's width and the
-// "  " gap between columns. Returns 0 if non-positive.
-func rightColumnWidth(panelContentWidth int, art string) int {
-	w := panelContentWidth - lipgloss.Width(art) - 2
+// album art for text + Up Next content, given the OUTER panel width.
+// Accounts for the panel's chrome (border + padding = 4 cols total),
+// the art's width, and the 2-col gap between art and right column.
+// Without the panelChrome subtraction the Up Next header pad overflows
+// the panel content area and lipgloss inside panelBox wraps the trailing
+// "─" characters onto a new line, visible as a horizontal split in the
+// rendered panel. Returns 0 if non-positive.
+func rightColumnWidth(panelOuterWidth int, art string) int {
+	const panelChrome = 4 // 1 left border + 1 left pad + 1 right pad + 1 right border
+	const gap = 2         // the "  " between art and right column
+	w := panelOuterWidth - panelChrome - lipgloss.Width(art) - gap
 	if w < 0 {
 		return 0
 	}
