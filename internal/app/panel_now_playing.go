@@ -175,6 +175,13 @@ func upNextBody(now domain.NowPlaying, panel playlistsPanel, rows, width int) st
 	}
 	tracks, cached := panel.tracksByName[name]
 	if !cached {
+		// A failed fetch leaves tracksByName empty but sets trackErrByName.
+		// Surface that as "no queue" — otherwise the placeholder would be
+		// stuck on "loading…" forever (handleStatus also gates on the same
+		// error to stop retrying).
+		if panel.trackErrByName[name] != nil {
+			return placeholder("no queue")
+		}
 		return placeholder("loading…")
 	}
 	if panel.trackErrByName[name] != nil {

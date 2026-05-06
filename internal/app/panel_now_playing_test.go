@@ -148,6 +148,25 @@ func TestRenderUpNextCacheErrorPlaceholder(t *testing.T) {
 	}
 }
 
+// When a fetch errors, the playlistTracksMsg handler sets trackErrByName
+// but leaves tracksByName empty (cache miss). The renderer must surface
+// this as "no queue" rather than getting stuck on "loading…".
+func TestRenderUpNextCacheMissWithErrorIsNotLoading(t *testing.T) {
+	now := domain.NowPlaying{
+		CurrentPlaylistName: "Recents",
+		Track:               domain.Track{PersistentID: "PID"},
+	}
+	p := newPlaylistsPanel()
+	p.trackErrByName["Recents"] = errors.New("signal: killed")
+	got := renderUpNext(now, p, 5, 30)
+	if strings.Contains(got, "loading") {
+		t.Errorf("expected 'no queue' (error suppresses retry/loading) but got loading: %q", got)
+	}
+	if !strings.Contains(got, "no queue") {
+		t.Errorf("expected 'no queue' on cache miss + error: %q", got)
+	}
+}
+
 func TestRenderUpNextHappyPath(t *testing.T) {
 	now := domain.NowPlaying{
 		CurrentPlaylistName: "Liked Songs",

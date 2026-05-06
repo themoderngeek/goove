@@ -739,3 +739,21 @@ func TestStatusMsgDoesNotDispatchWhenNoPlaylistContext(t *testing.T) {
 		t.Errorf("expected nil Cmd; got %T", cmd)
 	}
 }
+
+// A previous fetch failure is recorded in trackErrByName. Without this guard
+// the dispatch fires every status tick (every second), kicking off osascript
+// processes that all time out — pathological loop.
+func TestStatusMsgDoesNotRetryAfterPreviousFetchError(t *testing.T) {
+	m := newTestModel()
+	m.playlists.trackErrByName["Recents"] = errors.New("signal: killed")
+	np := domain.NowPlaying{
+		Track:               domain.Track{Title: "T"},
+		Volume:              50,
+		LastSyncedAt:        time.Now(),
+		CurrentPlaylistName: "Recents",
+	}
+	_, cmd := m.Update(statusMsg{now: np})
+	if cmd != nil {
+		t.Errorf("expected nil Cmd; got %T (must not retry an errored playlist on every tick)", cmd)
+	}
+}

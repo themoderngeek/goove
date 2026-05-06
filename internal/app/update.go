@@ -206,10 +206,17 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 	}
 
 	// Queue prefetch: fetch the playing playlist's tracks if we don't have
-	// them cached and aren't already fetching. Fires at most once per
-	// playlist-name change. Empty CurrentPlaylistName = no playlist context.
+	// them cached, aren't already fetching, and the previous fetch hasn't
+	// errored. The trackErrByName guard is load-bearing: without it, a
+	// persistent error (e.g. AppleScript timeout) would re-dispatch on
+	// every status tick, spinning up osascript processes that all time out.
+	// The error is cleared by the existing playlistTracksDebounce path when
+	// the user navigates to that playlist in the Main panel — that's the
+	// user-driven retry mechanism. Empty CurrentPlaylistName = no playlist
+	// context.
 	if name := msg.now.CurrentPlaylistName; name != "" {
-		if _, cached := m.playlists.tracksByName[name]; !cached && !m.playlists.fetchingFor[name] {
+		_, cached := m.playlists.tracksByName[name]
+		if !cached && !m.playlists.fetchingFor[name] && m.playlists.trackErrByName[name] == nil {
 			m.playlists.fetchingFor[name] = true
 			cmds = append(cmds, fetchPlaylistTracks(m.client, name))
 		}
