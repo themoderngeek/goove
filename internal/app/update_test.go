@@ -85,7 +85,7 @@ func TestStatusMsgGenericErrorSetsLastError(t *testing.T) {
 
 func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -109,7 +109,7 @@ func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 
 func TestNKeyTriggersNext(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -125,7 +125,7 @@ func TestNKeyTriggersNext(t *testing.T) {
 
 func TestPKeyTriggersPrev(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -137,7 +137,7 @@ func TestPKeyTriggersPrev(t *testing.T) {
 
 func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -167,7 +167,7 @@ func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 
 func TestVolumeDownClampsAtZero(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	m.lastVolume = 3
@@ -208,7 +208,7 @@ func TestSpaceWhileDisconnectedTriggersLaunch(t *testing.T) {
 
 func TestActionDoneFiresStatusRefresh(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	m := New(c, nil)
 
@@ -234,7 +234,7 @@ func TestActionDoneWithErrorSetsLastError(t *testing.T) {
 
 func TestTickMsgFiresStatusFetchAndReschedules(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	c.SetTrack(domain.Track{Title: "T"}, 200, 5, true)
 	m := New(c, nil)
 
@@ -558,7 +558,7 @@ func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 
 func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background())
 	m := New(c, nil)
 	m.playlists.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	// focus starts at focusPlaylists by default; we force a transition to
