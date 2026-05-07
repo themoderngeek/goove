@@ -10,3 +10,21 @@ linters:
     - unused
     - misspell
     - revive
+
+linters-settings:
+  revive:
+    rules:
+      # Disabled: noisy on interface-mandated parameters (e.g. ctx context.Context
+      # on methods that satisfy music.Client but never read ctx). The "rename to _"
+      # remedy doesn't add signal, and the rule fires on ~20 sites here.
+      - name: unused-parameter
+        disabled: true
+
+issues:
+  exclude-rules:
+    # Test setup against the in-process fake.Client cannot fail unless the test
+    # itself wires forcedErr; treating these as errcheck violations forces a
+    # mechanical "_ =" prefix on ~70 call sites without surfacing real bugs.
+    - path: _test\.go
+      linters:
+        - errcheck
