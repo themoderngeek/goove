@@ -22,9 +22,8 @@ linters-settings:
 
 issues:
   exclude-rules:
-    # Test setup against the in-process fake.Client cannot fail unless the test
-    # itself wires forcedErr; treating these as errcheck violations forces a
-    # mechanical "_ =" prefix on ~70 call sites without surfacing real bugs.
-    - path: _test\.go
+    # fake.Client setup calls cannot fail; checking each return value would be
+    # ~12 sites of noise without surfacing real bugs.
+    - path: internal/music/fake/.*_test\.go
       linters:
         - errcheck
