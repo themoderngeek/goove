@@ -19,6 +19,9 @@ linters-settings:
       # remedy doesn't add signal, and the rule fires on ~20 sites here.
       - name: unused-parameter
         disabled: true
+      # TODO: rename app.AppState -> app.State (avoids "stutter") and re-enable
+      - name: exported
+        disabled: true
 
 issues:
   exclude-rules:
