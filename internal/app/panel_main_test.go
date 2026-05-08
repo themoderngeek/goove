@@ -77,7 +77,7 @@ func TestMainTracksCursorClampsAtEnd(t *testing.T) {
 
 func TestMainTracksEnterPlaysFromCursor(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "A"}})
 	m := New(c, nil)
 	m.focus = focusMain

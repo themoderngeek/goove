@@ -13,7 +13,7 @@ import (
 
 func TestFocusingOutputFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	m := New(c, nil)
 	m.output.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	m.focus = focusPlaylists
@@ -68,7 +68,7 @@ func TestOutputCursorMovesWithJK(t *testing.T) {
 
 func TestOutputEnterFiresSetAirPlayDevice(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "MacBook", Selected: true},
 		{Name: "Sonos"},

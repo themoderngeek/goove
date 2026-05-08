@@ -74,7 +74,7 @@ func TestNoArgsReturnsUsageToStderrExits1(t *testing.T) {
 func setupRunningClient(t *testing.T) *fake.Client {
 	t.Helper()
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	return c
 }
@@ -118,7 +118,7 @@ func TestToggleNotRunningExit1WithHint(t *testing.T) {
 
 func TestTogglePermissionDeniedExit2(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SimulateError(music.ErrPermission)
 	var stdout, stderr bytes.Buffer
 
@@ -208,7 +208,7 @@ func TestLaunchSuccessFromNotRunning(t *testing.T) {
 
 func TestLaunchSuccessWhenAlreadyRunning(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background()) // already running before our call
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail — already running before our call
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"launch"}, c, &stdout, &stderr)
@@ -332,7 +332,7 @@ func TestVolumeNotRunningExit1WithHint(t *testing.T) {
 
 func TestStatusPlainConnectedPlaying(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "Hippie Sunshine", Artist: "Kasabian", Album: "ACT III"}, 186, 61, true)
 	var stdout, stderr bytes.Buffer
 
@@ -368,7 +368,7 @@ func TestStatusPlainConnectedPlaying(t *testing.T) {
 
 func TestStatusPlainConnectedPaused(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, false)
 	var stdout, stderr bytes.Buffer
 
@@ -381,7 +381,7 @@ func TestStatusPlainConnectedPaused(t *testing.T) {
 
 func TestStatusPlainConnectedNoArtist(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T", Artist: "", Album: "A"}, 100, 0, true)
 	var stdout, stderr bytes.Buffer
 
@@ -396,7 +396,7 @@ func TestStatusPlainConnectedNoArtist(t *testing.T) {
 
 func TestStatusPlainIdleExit0(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background()) // running but no track set
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail — running but no track set
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"status"}, c, &stdout, &stderr)
@@ -436,7 +436,7 @@ func TestStatusNotRunningExit1NoHint(t *testing.T) {
 
 func TestStatusPermissionExit2(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SimulateError(music.ErrPermission)
 	var stdout, stderr bytes.Buffer
 
@@ -449,7 +449,7 @@ func TestStatusPermissionExit2(t *testing.T) {
 
 func TestStatusUnavailableExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SimulateError(music.ErrUnavailable)
 	var stdout, stderr bytes.Buffer
 
@@ -462,7 +462,7 @@ func TestStatusUnavailableExit1(t *testing.T) {
 
 func TestStatusJSONConnected(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T", Artist: "A", Album: "B"}, 186, 61, true)
 	var stdout, stderr bytes.Buffer
 
@@ -505,7 +505,7 @@ func TestStatusJSONConnected(t *testing.T) {
 
 func TestStatusJSONShortFlagJEquivalent(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	var stdout, stderr bytes.Buffer
 
@@ -523,7 +523,7 @@ func TestStatusJSONShortFlagJEquivalent(t *testing.T) {
 
 func TestStatusJSONIdleOmitsOptionalFields(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background()) // running but no track
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail — running but no track
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"status", "--json"}, c, &stdout, &stderr)
@@ -573,7 +573,7 @@ func TestStatusJSONErrorPathStillPrintsToStderr(t *testing.T) {
 
 func TestTargetsListPlainConnected(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
 		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Active: true},
@@ -603,7 +603,7 @@ func TestTargetsListPlainConnected(t *testing.T) {
 
 func TestTargetsListJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Kind: "computer", Available: true, Selected: true},
 	})
@@ -631,7 +631,7 @@ func TestTargetsListJSON(t *testing.T) {
 
 func TestTargetsListEmptyPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{})
 	var stdout, stderr bytes.Buffer
 
@@ -647,7 +647,7 @@ func TestTargetsListEmptyPlain(t *testing.T) {
 
 func TestTargetsListEmptyJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{})
 	var stdout, stderr bytes.Buffer
 
@@ -718,7 +718,7 @@ func TestTargetsHelpFlag(t *testing.T) {
 
 func TestTargetsGetPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Selected: false},
 		{Name: "Kitchen Sonos", Selected: true},
@@ -739,7 +739,7 @@ func TestTargetsGetPlain(t *testing.T) {
 
 func TestTargetsGetJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Kitchen Sonos", Kind: "AirPlay", Available: true, Selected: true},
 	})
@@ -763,7 +763,7 @@ func TestTargetsGetJSON(t *testing.T) {
 
 func TestTargetsGetNoneSelectedExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Selected: false},
 	})
@@ -777,7 +777,7 @@ func TestTargetsGetNoneSelectedExit1(t *testing.T) {
 
 func TestTargetsSetSuccess(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Selected: true},
 		{Name: "Kitchen Sonos"},
@@ -802,7 +802,7 @@ func TestTargetsSetSuccess(t *testing.T) {
 
 func TestTargetsSetMissingNameExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"targets", "set"}, c, &stdout, &stderr)
@@ -816,7 +816,7 @@ func TestTargetsSetMissingNameExit1(t *testing.T) {
 
 func TestTargetsSetNotFoundExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{{Name: "Computer", Selected: true}})
 	var stdout, stderr bytes.Buffer
 
@@ -831,7 +831,7 @@ func TestTargetsSetNotFoundExit1(t *testing.T) {
 
 func TestTargetsSetAmbiguousExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Kitchen Sonos"},
 		{Name: "Office Sonos"},
@@ -853,7 +853,7 @@ func TestTargetsSetAmbiguousExit1(t *testing.T) {
 
 func TestTargetsSetExactMatchPriority(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Living Room", Selected: false},
 		{Name: "Living Room Speakers", Selected: false},
@@ -872,7 +872,7 @@ func TestTargetsSetExactMatchPriority(t *testing.T) {
 
 func TestTargetsSetSubstringMatch(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetDevices([]domain.AudioDevice{
 		{Name: "Computer", Selected: true},
 		{Name: "Kitchen Sonos"},
@@ -928,7 +928,7 @@ func TestPlayNotRunningExit1WithHint(t *testing.T) {
 
 func TestPlayPermissionDeniedExit2(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SimulateError(music.ErrPermission)
 	var stdout, stderr bytes.Buffer
 
@@ -972,7 +972,7 @@ func TestPauseNotRunningExit1WithHint(t *testing.T) {
 
 func TestPausePermissionDeniedExit2(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SimulateError(music.ErrPermission)
 	var stdout, stderr bytes.Buffer
 
@@ -985,7 +985,7 @@ func TestPausePermissionDeniedExit2(t *testing.T) {
 
 func TestPlaylistsListPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{
 		{Name: "Liked Songs", Kind: "user", TrackCount: 42},
 		{Name: "Workout", Kind: "subscription", TrackCount: 12},
@@ -1014,7 +1014,7 @@ func TestPlaylistsListPlain(t *testing.T) {
 
 func TestPlaylistsListJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{
 		{Name: "Liked Songs", Kind: "user", TrackCount: 42},
 	})
@@ -1039,7 +1039,7 @@ func TestPlaylistsListJSON(t *testing.T) {
 
 func TestPlaylistsListEmptyPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{})
 	var stdout, stderr bytes.Buffer
 
@@ -1054,7 +1054,7 @@ func TestPlaylistsListEmptyPlain(t *testing.T) {
 
 func TestPlaylistsListEmptyJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{})
 	var stdout, stderr bytes.Buffer
 
@@ -1122,7 +1122,7 @@ func TestPlaylistsHelpFlag(t *testing.T) {
 
 func TestPlaylistsTracksPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 2}})
 	c.SetPlaylistTracks("Liked Songs", []domain.Track{
 		{Title: "Stairway", Artist: "Led Zeppelin", Album: "IV", Duration: 482 * time.Second},
@@ -1149,7 +1149,7 @@ func TestPlaylistsTracksPlain(t *testing.T) {
 
 func TestPlaylistsTracksJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	c.SetPlaylistTracks("Liked Songs", []domain.Track{
 		{Title: "A", Artist: "B", Album: "C", Duration: 100 * time.Second},
@@ -1180,7 +1180,7 @@ func TestPlaylistsTracksJSON(t *testing.T) {
 
 func TestPlaylistsTracksMissingNameExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"playlists", "tracks"}, c, &stdout, &stderr)
@@ -1194,7 +1194,7 @@ func TestPlaylistsTracksMissingNameExit1(t *testing.T) {
 
 func TestPlaylistsTracksNotFoundExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	var stdout, stderr bytes.Buffer
 
@@ -1209,7 +1209,7 @@ func TestPlaylistsTracksNotFoundExit1(t *testing.T) {
 
 func TestPlaylistsTracksAmbiguousExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{
 		{Name: "Workout"},
 		{Name: "Workout 2025"},
@@ -1231,7 +1231,7 @@ func TestPlaylistsTracksAmbiguousExit1(t *testing.T) {
 
 func TestPlaylistsTracksExactMatchPriority(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{
 		{Name: "Workout"},
 		{Name: "Workout 2025"},
@@ -1250,7 +1250,7 @@ func TestPlaylistsTracksExactMatchPriority(t *testing.T) {
 
 func TestPlaylistsTracksSubstringMatch(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{
 		{Name: "Liked Songs"},
 		{Name: "Workout"},
@@ -1266,7 +1266,7 @@ func TestPlaylistsTracksSubstringMatch(t *testing.T) {
 
 func TestPlaylistsTracksEmptyPlain(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
 	c.SetPlaylistTracks("Empty", []domain.Track{})
 	var stdout, stderr bytes.Buffer
@@ -1282,7 +1282,7 @@ func TestPlaylistsTracksEmptyPlain(t *testing.T) {
 
 func TestPlaylistsTracksEmptyJSON(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
 	c.SetPlaylistTracks("Empty", []domain.Track{})
 	var stdout, stderr bytes.Buffer
@@ -1295,7 +1295,7 @@ func TestPlaylistsTracksEmptyJSON(t *testing.T) {
 
 func TestPlaylistsPlayFromStartSilentExit0(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	c.SetPlaylistTracks("Liked Songs", []domain.Track{{Title: "Sample"}})
 	var stdout, stderr bytes.Buffer
@@ -1318,7 +1318,7 @@ func TestPlaylistsPlayFromStartSilentExit0(t *testing.T) {
 
 func TestPlaylistsPlayWithTrackConvertsTo0Based(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	c.SetPlaylistTracks("Liked Songs", []domain.Track{
 		{Title: "T1"}, {Title: "T2"}, {Title: "T3"}, {Title: "T4"}, {Title: "T5"},
@@ -1338,7 +1338,7 @@ func TestPlaylistsPlayWithTrackConvertsTo0Based(t *testing.T) {
 
 func TestPlaylistsPlayMissingNameExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	var stdout, stderr bytes.Buffer
 
 	code := Run([]string{"playlists", "play"}, c, &stdout, &stderr)
@@ -1352,7 +1352,7 @@ func TestPlaylistsPlayMissingNameExit1(t *testing.T) {
 
 func TestPlaylistsPlayNotFoundExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	var stdout, stderr bytes.Buffer
 
@@ -1367,7 +1367,7 @@ func TestPlaylistsPlayNotFoundExit1(t *testing.T) {
 
 func TestPlaylistsPlayEmptyPlaylistExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Empty"}})
 	c.SetPlaylistTracks("Empty", []domain.Track{})
 	var stdout, stderr bytes.Buffer
@@ -1386,7 +1386,7 @@ func TestPlaylistsPlayEmptyPlaylistExit1(t *testing.T) {
 
 func TestPlaylistsPlayTrackOutOfRangeExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Short"}})
 	c.SetPlaylistTracks("Short", []domain.Track{{Title: "Only"}, {Title: "Two"}})
 	var stdout, stderr bytes.Buffer
@@ -1405,7 +1405,7 @@ func TestPlaylistsPlayTrackOutOfRangeExit1(t *testing.T) {
 
 func TestPlaylistsPlayTrackZeroExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "X"}})
 	c.SetPlaylistTracks("X", []domain.Track{{Title: "T"}})
 	var stdout, stderr bytes.Buffer
@@ -1421,7 +1421,7 @@ func TestPlaylistsPlayTrackZeroExit1(t *testing.T) {
 
 func TestPlaylistsPlayInvalidTrackArgExit1(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "X"}})
 	var stdout, stderr bytes.Buffer
 
@@ -1449,7 +1449,7 @@ func TestPlaylistsPlayNotRunningExit1(t *testing.T) {
 
 func TestPlaylistSingularAliasRoutes(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs", Kind: "user", TrackCount: 1}})
 	var stdout, stderr bytes.Buffer
 

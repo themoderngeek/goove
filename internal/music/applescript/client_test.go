@@ -144,11 +144,11 @@ func TestPlayPauseRunsPlayPauseScript(t *testing.T) {
 func TestNextAndPrevRunRespectiveScripts(t *testing.T) {
 	r := &fakeRunner{}
 	c := New(r)
-	c.Next(context.Background())
+	c.Next(context.Background()) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if r.script != scriptNext {
 		t.Errorf("after Next: ran %q; want scriptNext", r.script)
 	}
-	c.Prev(context.Background())
+	c.Prev(context.Background()) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if r.script != scriptPrev {
 		t.Errorf("after Prev: ran %q; want scriptPrev", r.script)
 	}
@@ -157,7 +157,7 @@ func TestNextAndPrevRunRespectiveScripts(t *testing.T) {
 func TestSetVolumeFormatsScriptWithPercent(t *testing.T) {
 	r := &fakeRunner{}
 	c := New(r)
-	c.SetVolume(context.Background(), 73)
+	c.SetVolume(context.Background(), 73) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	want := `tell application "Music" to set sound volume to 73`
 	if r.script != want {
 		t.Errorf("ran %q; want %q", r.script, want)
@@ -167,11 +167,11 @@ func TestSetVolumeFormatsScriptWithPercent(t *testing.T) {
 func TestSetVolumeClampsToZeroAndHundred(t *testing.T) {
 	r := &fakeRunner{}
 	c := New(r)
-	c.SetVolume(context.Background(), 150)
+	c.SetVolume(context.Background(), 150) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if !contains(r.script, "to 100") {
 		t.Errorf("over-100 should clamp; ran %q", r.script)
 	}
-	c.SetVolume(context.Background(), -5)
+	c.SetVolume(context.Background(), -5) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if !contains(r.script, "to 0") {
 		t.Errorf("under-0 should clamp; ran %q", r.script)
 	}
@@ -228,7 +228,7 @@ func TestArtworkOnOKReturnsCacheFileBytes(t *testing.T) {
 func TestArtworkRunsScriptWithCachePath(t *testing.T) {
 	r := &fakeRunner{out: []byte("NO_ART\n")}
 	c := New(r)
-	c.Artwork(context.Background())
+	c.Artwork(context.Background()) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 
 	cachePath, _ := artworkCachePath()
 	if !strings.Contains(r.script, cachePath) {
@@ -258,7 +258,7 @@ func TestRunnerErrorWithUnrelatedStderrMapsToErrUnavailable(t *testing.T) {
 func TestAirPlayDevicesRunsScript(t *testing.T) {
 	r := &fakeRunner{out: []byte("")}
 	c := New(r)
-	c.AirPlayDevices(context.Background())
+	c.AirPlayDevices(context.Background()) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if r.script != scriptAirPlayDevices {
 		t.Errorf("ran %q; want scriptAirPlayDevices", r.script)
 	}
@@ -369,7 +369,7 @@ func TestSetAirPlayDeviceUsesExactNameForSetCall(t *testing.T) {
 	}
 	c := New(r)
 
-	c.SetAirPlayDevice(context.Background(), "kitchen")
+	c.SetAirPlayDevice(context.Background(), "kitchen") //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.scripts
 	if !strings.Contains(r.scripts[1], "Kitchen Sonos") {
 		t.Errorf("set script did not contain exact name 'Kitchen Sonos': %q", r.scripts[1])
 	}
@@ -437,7 +437,7 @@ func TestPauseRunsPauseScript(t *testing.T) {
 func TestPlaylistsRunsScript(t *testing.T) {
 	r := &fakeRunner{out: []byte("")}
 	c := New(r)
-	c.Playlists(context.Background())
+	c.Playlists(context.Background()) //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if r.script != scriptPlaylists {
 		t.Errorf("ran %q; want scriptPlaylists", r.script)
 	}
@@ -468,7 +468,7 @@ func TestPlaylistsNotRunning(t *testing.T) {
 func TestPlaylistTracksRunsScriptWithName(t *testing.T) {
 	r := &fakeRunner{out: []byte("")}
 	c := New(r)
-	c.PlaylistTracks(context.Background(), "Liked Songs")
+	c.PlaylistTracks(context.Background(), "Liked Songs") //nolint:errcheck // script-shape test: fakeRunner always succeeds; we inspect r.script
 	if !strings.Contains(r.script, "Liked Songs") {
 		t.Errorf("ran %q; expected playlist name in script", r.script)
 	}
