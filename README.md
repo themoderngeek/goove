@@ -114,10 +114,18 @@ Set `GOOVE_LOG=debug` for verbose logging.
 ## Development
 
 ```bash
-go test ./...                                            # unit tests
-go test -tags=integration ./internal/music/applescript/  # hits real Music.app
-go run ./cmd/goove                                       # run from source
-go build -o goove ./cmd/goove                            # produce a binary
+make tools          # install pinned dev tools (one-time)
+make help           # list all targets
+make test           # unit tests
+make ci             # everything CI runs (fmt, vet, lint, vuln, race tests, build)
+make run            # run from source
+make build          # produce a binary
+```
+
+Integration tests (hit real Music.app):
+
+```bash
+make test-integration
 ```
 
 The design lives in [`docs/superpowers/specs/2026-04-30-goove-mvp-design.md`](docs/superpowers/specs/2026-04-30-goove-mvp-design.md).
