@@ -3,7 +3,7 @@ BINARY    ?= goove
 PKG       := ./cmd/goove
 
 GOLANGCI_LINT_VERSION ?= v1.64.8
-GOVULNCHECK_VERSION   ?= latest
+GOVULNCHECK_VERSION   ?= v1.1.4
 
 .DEFAULT_GOAL := help
 
@@ -49,7 +49,7 @@ tools:  ## install pinned dev tools into $GOBIN
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	$(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 
-ci: fmt-check vet lint vuln test-race build  ## what CI runs
+ci: fmt-check vet vuln lint test-race build  ## what CI runs
 
 clean:  ## remove built binaries
 	rm -f $(BINARY) main
