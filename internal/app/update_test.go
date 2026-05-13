@@ -85,7 +85,7 @@ func TestStatusMsgGenericErrorSetsLastError(t *testing.T) {
 
 func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -109,7 +109,7 @@ func TestSpaceTriggersPlayPauseAction(t *testing.T) {
 
 func TestNKeyTriggersNext(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -125,7 +125,7 @@ func TestNKeyTriggersNext(t *testing.T) {
 
 func TestPKeyTriggersPrev(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -137,7 +137,7 @@ func TestPKeyTriggersPrev(t *testing.T) {
 
 func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 
@@ -167,7 +167,7 @@ func TestVolumeUpOptimisticallyUpdatesAndCallsSetVolume(t *testing.T) {
 
 func TestVolumeDownClampsAtZero(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	m.lastVolume = 3
@@ -208,7 +208,7 @@ func TestSpaceWhileDisconnectedTriggersLaunch(t *testing.T) {
 
 func TestActionDoneFiresStatusRefresh(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	m := New(c, nil)
 
@@ -234,7 +234,7 @@ func TestActionDoneWithErrorSetsLastError(t *testing.T) {
 
 func TestTickMsgFiresStatusFetchAndReschedules(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 5, true)
 	m := New(c, nil)
 
@@ -347,7 +347,7 @@ var _ art.Renderer = stubRenderer{}
 
 func TestStatusMsgWithNewTrackFiresFetchArtwork(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T", Artist: "A", Album: "B"}, 100, 0, true)
 	c.SetArtwork([]byte("PNGBYTES"))
 	m := New(c, stubRenderer{out: "ANSI"})
@@ -369,7 +369,7 @@ func TestStatusMsgWithNewTrackFiresFetchArtwork(t *testing.T) {
 
 func TestStatusMsgWithSameTrackDoesNotRefireFetchArtwork(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	c.SetArtwork([]byte("PNGBYTES"))
 	m := New(c, stubRenderer{out: "ANSI"})
@@ -392,7 +392,7 @@ func TestStatusMsgWithSameTrackDoesNotRefireFetchArtwork(t *testing.T) {
 
 func TestStatusMsgFiresNothingWhenRendererNil(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 100, 0, true)
 	m := New(c, nil) // no renderer ⇒ no art fetches ever
 
@@ -483,7 +483,7 @@ func TestArtworkMsgWithErrorClearsFetchingButLeavesOutputEmpty(t *testing.T) {
 
 func TestOKeyFocusesOutputPanelAndDispatchesFetch(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	m.output.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
@@ -558,7 +558,7 @@ func TestNumberKeysJumpDirectlyToFocus(t *testing.T) {
 
 func TestFocusingPlaylistsFiresFetchWhenEmpty(t *testing.T) {
 	c := fake.New()
-	c.Launch(nil)
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	m := New(c, nil)
 	m.playlists.loading = false // simulate post-startup-fetch state — eager fetch finished without populating
 	// focus starts at focusPlaylists by default; we force a transition to
@@ -634,7 +634,7 @@ func TestPlaylistsMsgClampsCursorWhenResultShorter(t *testing.T) {
 
 func TestSlashKeyFocusesSearchAndEntersInputMode(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetTrack(domain.Track{Title: "T"}, 200, 10, false)
 	m := New(c, nil)
 	np := domain.NowPlaying{Track: domain.Track{Title: "T"}, Volume: 50}
@@ -681,7 +681,7 @@ func TestStatusMsgDispatchesQueuePrefetchWhenPlaylistUncached(t *testing.T) {
 	}
 	// Configure the fake to return tracks for Recents so the Cmd's downstream
 	// PlaylistTracks call succeeds and the message is observable.
-	got.client.(*fake.Client).Launch(context.Background())
+	got.client.(*fake.Client).Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	got.client.(*fake.Client).SetPlaylistTracks("Recents", []domain.Track{
 		{Title: "X", PersistentID: "PID-X"},
 	})

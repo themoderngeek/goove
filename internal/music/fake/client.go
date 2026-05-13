@@ -27,7 +27,7 @@ type Client struct {
 	devices            []domain.AudioDevice
 	playlists          []domain.Playlist
 	playlistTracks     map[string][]domain.Track
-	playPlaylistRecord []playPlaylistCall
+	playPlaylistRecord []PlayPlaylistCall
 
 	// Set by SetTracks; queried by SearchTracks. Distinct from playlistTracks
 	// because library search is a property of the whole library, not of any
@@ -35,7 +35,7 @@ type Client struct {
 	libraryTracks []domain.Track
 
 	// Records of PlayTrack invocations.
-	playTrackRecord []playTrackCall
+	playTrackRecord []PlayTrackCall
 
 	// Counters useful for assertions.
 	PlayPauseCalls    int
@@ -52,13 +52,13 @@ type Client struct {
 	shuffleEnabled      bool
 }
 
-// playPlaylistCall records one PlayPlaylist invocation.
-type playPlaylistCall struct {
+// PlayPlaylistCall records one PlayPlaylist invocation.
+type PlayPlaylistCall struct {
 	Name    string
 	FromIdx int
 }
 
-type playTrackCall struct {
+type PlayTrackCall struct {
 	PersistentID string
 }
 
@@ -123,7 +123,7 @@ func (c *Client) SetDevices(devices []domain.AudioDevice) {
 }
 
 // AirPlayDevices implements music.Client.
-func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, error) {
+func (c *Client) AirPlayDevices(_ context.Context) ([]domain.AudioDevice, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
@@ -140,7 +140,7 @@ func (c *Client) AirPlayDevices(ctx context.Context) ([]domain.AudioDevice, erro
 
 // CurrentAirPlayDevice implements music.Client. Returns the device with
 // Selected=true, or ErrDeviceNotFound if no device is selected.
-func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, error) {
+func (c *Client) CurrentAirPlayDevice(_ context.Context) (domain.AudioDevice, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
@@ -160,7 +160,7 @@ func (c *Client) CurrentAirPlayDevice(ctx context.Context) (domain.AudioDevice, 
 // SetAirPlayDevice implements music.Client. Updates the Selected flag in-place:
 // the named device becomes Selected=true, all others become Selected=false.
 // Returns ErrDeviceNotFound if no device with the exact name exists.
-func (c *Client) SetAirPlayDevice(ctx context.Context, name string) error {
+func (c *Client) SetAirPlayDevice(_ context.Context, name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.forcedErr != nil {
@@ -350,10 +350,10 @@ func (c *Client) SetPlaylistTracks(name string, tracks []domain.Track) {
 }
 
 // PlayPlaylistRecord returns a copy of the recorded PlayPlaylist invocations.
-func (c *Client) PlayPlaylistRecord() []playPlaylistCall {
+func (c *Client) PlayPlaylistRecord() []PlayPlaylistCall {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	out := make([]playPlaylistCall, len(c.playPlaylistRecord))
+	out := make([]PlayPlaylistCall, len(c.playPlaylistRecord))
 	copy(out, c.playPlaylistRecord)
 	return out
 }
@@ -413,7 +413,7 @@ func (c *Client) PlayPlaylist(ctx context.Context, playlistName string, fromTrac
 		return music.ErrPlaylistNotFound
 	}
 	c.PlayPlaylistCalls++
-	c.playPlaylistRecord = append(c.playPlaylistRecord, playPlaylistCall{
+	c.playPlaylistRecord = append(c.playPlaylistRecord, PlayPlaylistCall{
 		Name: playlistName, FromIdx: fromTrackIndex,
 	})
 	return nil
@@ -427,10 +427,10 @@ func (c *Client) SetLibraryTracks(tracks []domain.Track) {
 }
 
 // PlayTrackRecord returns a copy of the recorded PlayTrack invocations.
-func (c *Client) PlayTrackRecord() []playTrackCall {
+func (c *Client) PlayTrackRecord() []PlayTrackCall {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	out := make([]playTrackCall, len(c.playTrackRecord))
+	out := make([]PlayTrackCall, len(c.playTrackRecord))
 	copy(out, c.playTrackRecord)
 	return out
 }
@@ -476,7 +476,7 @@ func (c *Client) PlayTrack(ctx context.Context, persistentID string) error {
 	for _, t := range c.libraryTracks {
 		if t.PersistentID == persistentID {
 			c.PlayTrackCalls++
-			c.playTrackRecord = append(c.playTrackRecord, playTrackCall{PersistentID: persistentID})
+			c.playTrackRecord = append(c.playTrackRecord, PlayTrackCall{PersistentID: persistentID})
 			c.hasTrack = true
 			c.track = t
 			c.duration = t.Duration

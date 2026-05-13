@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  ci:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,9 +14,7 @@ jobs:
         with:
           go-version: '1.24'
           cache: true
-      - name: Vet
-        run: go vet ./...
-      - name: Test
-        run: go test ./...
-      - name: Build
-        run: go build ./...
+      - name: Install dev tools
+        run: make tools
+      - name: Run CI
+        run: make ci

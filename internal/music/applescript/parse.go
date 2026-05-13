@@ -36,9 +36,7 @@ func parseStatus(raw string) (domain.NowPlaying, error) {
 	// Drop only the single trailing newline AppleScript emits, not all of them.
 	// The last field (playlist name) may be empty; if so, there's an empty string
 	// before the final \n that must be preserved.
-	if strings.HasSuffix(rawClean, "\n") {
-		rawClean = rawClean[:len(rawClean)-1]
-	}
+	rawClean = strings.TrimSuffix(rawClean, "\n")
 	lines := strings.Split(rawClean, "\n")
 	if len(lines) != 10 {
 		return domain.NowPlaying{}, fmt.Errorf("%w: expected 10 lines, got %d", music.ErrUnavailable, len(lines))

@@ -1,0 +1,32 @@
+run:
+  timeout: 3m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - revive
+
+linters-settings:
+  revive:
+    rules:
+      # Disabled: noisy on interface-mandated parameters (e.g. ctx context.Context
+      # on methods that satisfy music.Client but never read ctx). The "rename to _"
+      # remedy doesn't add signal, and the rule fires on ~20 sites here.
+      - name: unused-parameter
+        disabled: true
+      # TODO: rename app.AppState -> app.State (avoids "stutter") and re-enable
+      - name: exported
+        disabled: true
+
+issues:
+  exclude-rules:
+    # fake.Client setup calls cannot fail; checking each return value would be
+    # ~12 sites of noise without surfacing real bugs.
+    - path: internal/music/fake/.*_test\.go
+      linters:
+        - errcheck

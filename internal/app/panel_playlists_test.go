@@ -171,7 +171,7 @@ func TestPlaylistTracksMsgClearsFetchingForOnError(t *testing.T) {
 
 func TestPlaylistsEnterPlaysHighlightedPlaylistFromTrackZero(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "A"}, {Name: "B"}})
 	m := New(c, nil)
 	m.focus = focusPlaylists
@@ -286,7 +286,7 @@ func TestPlaylistTracksMsgSuccessClearsPriorTrackErr(t *testing.T) {
 
 func TestPlaylistTracksDebounceMsgClearsPriorErrorOnRetry(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "B"}})
 	m := New(c, nil)
 	m.playlists.seq = 5
@@ -311,7 +311,7 @@ func TestNewInitialisesPlaylistsPanelLoading(t *testing.T) {
 
 func TestInitFetchesPlaylistsAndDevicesEagerly(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}})
 	c.SetDevices([]domain.AudioDevice{{Name: "MacBook"}})
 	m := New(c, nil)
@@ -359,7 +359,7 @@ func TestInitFetchesPlaylistsAndDevicesEagerly(t *testing.T) {
 
 func TestPlaylistsMsgPrefetchesFirstPlaylistTracksWhenSelectedEmpty(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetPlaylists([]domain.Playlist{{Name: "Liked Songs"}, {Name: "Recent"}})
 	c.SetPlaylistTracks("Liked Songs", []domain.Track{{Title: "t1"}, {Title: "t2"}})
 	m := New(c, nil)

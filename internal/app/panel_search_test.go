@@ -95,7 +95,7 @@ func TestSearchPanelNumberKeysStillJumpFocusInInputMode(t *testing.T) {
 
 func TestSearchPanelEnterFiresSearch(t *testing.T) {
 	c := fake.New()
-	c.Launch(context.Background())
+	c.Launch(context.Background()) //nolint:errcheck // fake.Client.Launch cannot fail
 	c.SetLibraryTracks([]domain.Track{{Title: "Stairway", Artist: "Led Zeppelin", PersistentID: "p1"}})
 	m := New(c, nil)
 	m.focus = focusSearch

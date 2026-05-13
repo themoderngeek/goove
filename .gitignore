@@ -39,3 +39,8 @@ go.work.sum
 
 # goove built binary
 /goove
+
+/main
+
+# Release workflow staging
+dist/
