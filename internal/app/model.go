@@ -118,6 +118,16 @@ type Model struct {
 	search    searchPanel
 	output    outputPanel
 	main      mainPanel
+
+	// Queue management state (spec 2026-05-13-queue-management-design.md).
+	queue          QueueState
+	resume         ResumeContext
+	lastTrackPID   string // PID seen on previous status tick; "" at launch
+	lastPlaylist   string // CurrentPlaylistName on previous tick
+	lastTrackIdx   int    // 1-based index of last-seen track in lastPlaylist; 0 if unknown
+	overlay        overlayState
+	clearPrompt    bool   // true while awaiting y/n after `c` in overlay
+	pendingJumpPID string // one-shot: overlay Enter sets this; handoff handler clears on match
 }
 
 // New builds an initial Model with state Disconnected and lastVolume 50.
@@ -150,4 +160,17 @@ func (m Model) Init() tea.Cmd {
 		fetchPlaylists(m.client),
 		fetchDevices(m.client),
 	)
+}
+
+// Placeholders — replaced by full definitions in later tasks.
+// ResumeContext is defined in resume.go (Task 5).
+// overlayState is defined in panel_queue.go (Task 8).
+type ResumeContext struct {
+	PlaylistName string
+	NextIndex    int
+}
+
+type overlayState struct {
+	open   bool
+	cursor int
 }
