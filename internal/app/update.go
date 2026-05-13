@@ -162,6 +162,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focus = focusMain
 		return m, nil
 
+	case playPlaylistMsg:
+		if msg.err != nil {
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
+		return m, nil
+
 	case playTrackResultMsg:
 		if msg.err != nil {
 			m.lastError = msg.err
@@ -221,6 +229,23 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 			cmds = append(cmds, fetchPlaylistTracks(m.client, name))
 		}
 	}
+
+	// Queue handoff: compare current tick's PID against the cached
+	// previous-tick state to decide intercept / drain / pop / no-op.
+	// The handler returns a Cmd (or nil) which is batched with anything
+	// the artwork / prefetch logic added.
+	prevPID := m.lastTrackPID
+	prevPlaylist := m.lastPlaylist
+	prevIdx := m.lastTrackIdx
+	var handoffCmd tea.Cmd
+	m, handoffCmd = m.handleQueueHandoff(msg.now, prevPID, prevPlaylist, prevIdx)
+	if handoffCmd != nil {
+		cmds = append(cmds, handoffCmd)
+	}
+	// Refresh the cache for the next tick.
+	m.lastTrackPID = msg.now.Track.PersistentID
+	m.lastPlaylist = msg.now.CurrentPlaylistName
+	m.lastTrackIdx = m.indexOfPID(msg.now.Track.PersistentID, msg.now.CurrentPlaylistName)
 
 	switch len(cmds) {
 	case 0:

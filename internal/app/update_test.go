@@ -844,3 +844,93 @@ func TestKeyAOnMainWithEmptyRowsIsNoOp(t *testing.T) {
 		t.Errorf("lastError = %v; want nil (no-op silently)", got.lastError)
 	}
 }
+
+func TestHandleStatusInvokesHandoffAndRefreshesLastFields(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "LZ"}})
+	c.SetPlaylistTracks("LZ", []domain.Track{
+		{Title: "Black Dog", PersistentID: "BD"},
+		{Title: "Stairway", PersistentID: "ST"},
+	})
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "Hotel California", PersistentID: "HC"},
+	})
+	m := New(c, nil)
+	m.playlists.tracksByName["LZ"] = []domain.Track{
+		{Title: "Black Dog", PersistentID: "BD"},
+		{Title: "Stairway", PersistentID: "ST"},
+	}
+	// Prime previous-tick state to ST in LZ at index 2.
+	m.lastTrackPID = "ST"
+	m.lastPlaylist = "LZ"
+	m.lastTrackIdx = 2
+	// Queue Hotel California so the next tick triggers intercept.
+	m.queue.Add(domain.Track{Title: "Hotel California", PersistentID: "HC"})
+
+	// Status tick: Music.app moved to the next playlist track (BD again
+	// won't do — pick a different PID so it's a real change).
+	now := domain.NowPlaying{
+		Track:               domain.Track{Title: "End", PersistentID: "END"},
+		Volume:              50,
+		IsPlaying:           true,
+		CurrentPlaylistName: "LZ",
+	}
+
+	updated, cmd := m.Update(statusMsg{now: now})
+	got := updated.(Model)
+
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (intercept popped head)", got.queue.Len())
+	}
+	if got.resume.PlaylistName != "LZ" || got.resume.NextIndex != 3 {
+		t.Errorf("resume = %+v; want {LZ 3}", got.resume)
+	}
+	if got.lastTrackPID != "END" {
+		t.Errorf("lastTrackPID = %q; want END", got.lastTrackPID)
+	}
+	if got.lastPlaylist != "LZ" {
+		t.Errorf("lastPlaylist = %q; want LZ", got.lastPlaylist)
+	}
+	// END isn't in the cached LZ tracks, so lastTrackIdx is 0.
+	if got.lastTrackIdx != 0 {
+		t.Errorf("lastTrackIdx = %d; want 0", got.lastTrackIdx)
+	}
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	// The intercept Cmd should produce a PlayTrack call when invoked.
+	_ = cmd() // may be a tea.Batch wrapper — call it to flush
+	rec := c.PlayTrackRecord()
+	if len(rec) != 1 || rec[0].PersistentID != "HC" {
+		t.Errorf("PlayTrack record = %v; want [{HC}]", rec)
+	}
+}
+
+func TestHandleStatusRefreshesLastFieldsOnNormalTick(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "LZ"}})
+	c.SetPlaylistTracks("LZ", []domain.Track{{Title: "Stairway", PersistentID: "ST"}})
+	m := New(c, nil)
+	m.playlists.tracksByName["LZ"] = []domain.Track{{Title: "Stairway", PersistentID: "ST"}}
+
+	now := domain.NowPlaying{
+		Track:               domain.Track{Title: "Stairway", PersistentID: "ST"},
+		Volume:              50,
+		IsPlaying:           true,
+		CurrentPlaylistName: "LZ",
+	}
+	updated, _ := m.Update(statusMsg{now: now})
+	got := updated.(Model)
+
+	if got.lastTrackPID != "ST" {
+		t.Errorf("lastTrackPID = %q; want ST", got.lastTrackPID)
+	}
+	if got.lastPlaylist != "LZ" {
+		t.Errorf("lastPlaylist = %q; want LZ", got.lastPlaylist)
+	}
+	if got.lastTrackIdx != 1 {
+		t.Errorf("lastTrackIdx = %d; want 1", got.lastTrackIdx)
+	}
+}
