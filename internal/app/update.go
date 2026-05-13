@@ -314,6 +314,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		mm, cmd := onFocusOutput(m)
 		return mm, cmd
 
+	case "a":
+		if m.focus != focusMain {
+			return m, nil
+		}
+		before := m.lastError
+		m = enqueueFocusedMainRow(m)
+		if m.lastError != nil && m.lastError != before {
+			return m, clearErrorAfter()
+		}
+		return m, nil
+
 	case "/":
 		if _, ok := m.state.(Disconnected); ok {
 			return m, nil

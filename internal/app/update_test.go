@@ -757,3 +757,90 @@ func TestStatusMsgDoesNotRetryAfterPreviousFetchError(t *testing.T) {
 		t.Errorf("expected nil Cmd; got %T (must not retry an errored playlist on every tick)", cmd)
 	}
 }
+
+func TestKeyAEnqueuesFocusedMainTrack(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	// Focus Main with one search-result row that has a PID.
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = []domain.Track{{Title: "Hotel California", PersistentID: "HC1"}}
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 1 {
+		t.Fatalf("queue.Len = %d; want 1", got.queue.Len())
+	}
+	if got.queue.Items[0].PersistentID != "HC1" {
+		t.Errorf("enqueued PID = %q; want HC1", got.queue.Items[0].PersistentID)
+	}
+}
+
+func TestKeyAOnEmptyPIDRefusesAndSetsError(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = []domain.Track{{Title: "NoPID"}} // empty PID
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (refused)", got.queue.Len())
+	}
+	if got.lastError == nil || !errors.Is(got.lastError, ErrNoPersistentID) {
+		t.Errorf("lastError = %v; want ErrNoPersistentID", got.lastError)
+	}
+}
+
+func TestKeyAOnNonMainFocusIsNoOp(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusPlaylists // not Main
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (no-op when focus != Main)", got.queue.Len())
+	}
+}
+
+func TestKeyAOnMainWithEmptyRowsIsNoOp(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = nil
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0", got.queue.Len())
+	}
+	if got.lastError != nil {
+		t.Errorf("lastError = %v; want nil (no-op silently)", got.lastError)
+	}
+}
