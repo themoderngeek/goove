@@ -162,14 +162,7 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-// Placeholders — replaced by full definitions in later tasks.
-// ResumeContext is defined in resume.go (Task 5).
-// overlayState is defined in panel_queue.go (Task 8).
-type ResumeContext struct {
-	PlaylistName string
-	NextIndex    int
-}
-
+// Placeholder — replaced by full definition in panel_queue.go (Task 8).
 type overlayState struct {
 	open   bool
 	cursor int
