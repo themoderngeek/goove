@@ -318,12 +318,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if m.focus != focusMain {
 			return m, nil
 		}
-		before := m.lastError
-		m = enqueueFocusedMainRow(m)
-		if m.lastError != nil && m.lastError != before {
-			return m, clearErrorAfter()
-		}
-		return m, nil
+		return enqueueFocusedMainRow(m)
 
 	case "/":
 		if _, ok := m.state.(Disconnected); ok {

@@ -179,20 +179,20 @@ func playTrack(c music.Client, persistentID string) tea.Cmd {
 }
 
 // enqueueFocusedMainRow appends the focused Main panel row's track to
-// m.queue, or sets m.lastError if the track has no persistent ID. No-op
-// when there are no rows or the cursor is out of range. Does not dispatch
-// any Cmd.
-func enqueueFocusedMainRow(m Model) Model {
+// m.queue. On empty PersistentID, sets m.lastError to ErrNoPersistentID
+// and returns a clearErrorAfter Cmd so the bottom error strip auto-
+// dissolves. No-op when there are no rows or the cursor is out of range.
+func enqueueFocusedMainRow(m Model) (Model, tea.Cmd) {
 	rows := mainPaneRows(m)
 	if len(rows) == 0 || m.main.cursor < 0 || m.main.cursor >= len(rows) {
-		return m
+		return m, nil
 	}
 	t := rows[m.main.cursor]
 	if t.PersistentID == "" {
 		m.lastError = ErrNoPersistentID
 		m.lastErrorAt = time.Now()
-		return m
+		return m, clearErrorAfter()
 	}
 	m.queue.Add(t)
-	return m
+	return m, nil
 }
