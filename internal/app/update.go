@@ -265,6 +265,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.overlay.open {
+		mm, cmd := updateOverlay(m, msg)
+		return mm, cmd
+	}
+
 	// Phase 2: focus-routed panel handlers run before globals.
 	switch m.focus {
 	case focusPlaylists:
@@ -312,6 +317,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	case "q":
 		return m, tea.Quit
+
+	case "Q":
+		m.overlay.open = true
+		m.overlay.cursor = 0
+		return m, nil
 
 	case " ":
 		if _, ok := m.state.(Disconnected); ok {

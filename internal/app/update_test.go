@@ -934,3 +934,45 @@ func TestHandleStatusRefreshesLastFieldsOnNormalTick(t *testing.T) {
 		t.Errorf("lastTrackIdx = %d; want 1", got.lastTrackIdx)
 	}
 }
+
+func TestKeyQOpensOverlay(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Q'}})
+	got := updated.(Model)
+	if !got.overlay.open {
+		t.Fatal("overlay.open false after Q")
+	}
+	if got.overlay.cursor != 0 {
+		t.Errorf("cursor = %d; want 0 on fresh open", got.overlay.cursor)
+	}
+}
+
+func TestKeyQuitSuppressedWhileOverlayOpen(t *testing.T) {
+	m := newTestModel()
+	m.overlay.open = true
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Errorf("q while overlay open returned cmd %v; want nil (suppressed quit)", cmd)
+	}
+}
+
+func TestKeysRouteToOverlayWhenOpen(t *testing.T) {
+	m := newTestModel()
+	m.overlay.open = true
+	m.queue.Add(domain.Track{Title: "A", PersistentID: "A1"})
+	m.queue.Add(domain.Track{Title: "B", PersistentID: "B1"})
+
+	// 'j' should move overlay cursor, not switch focus.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	got := updated.(Model)
+	if got.overlay.cursor != 1 {
+		t.Errorf("overlay cursor = %d; want 1", got.overlay.cursor)
+	}
+}
