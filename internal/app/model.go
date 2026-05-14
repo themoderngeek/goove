@@ -161,4 +161,3 @@ func (m Model) Init() tea.Cmd {
 		fetchDevices(m.client),
 	)
 }
-
