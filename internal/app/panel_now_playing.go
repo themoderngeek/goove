@@ -27,7 +27,7 @@ func renderNowPlayingPanel(m Model, width int) string {
 		if m.art.key == trackKey(s.Now.Track) {
 			art = m.art.output
 		}
-		body = renderConnectedCardOnly(s, art, width, m.playlists)
+		body = renderConnectedCardOnly(s, art, width, m.playlists, m.queue.Items)
 	case Idle:
 		body = renderIdleCard(s.Volume)
 	case Disconnected:
@@ -49,7 +49,7 @@ func renderNowPlayingPanel(m Model, width int) string {
 //     the art and the text starts at the top.
 //   - art present but no room for Up Next (art_height − text_height − 1 < 1)
 //     → centered art+text join, today's behaviour, Up Next suppressed.
-func renderConnectedCardOnly(s Connected, art string, width int, panel playlistsPanel) string {
+func renderConnectedCardOnly(s Connected, art string, width int, panel playlistsPanel, queue []domain.Track) string {
 	text := buildNowPlayingText(s)
 	if width < artLayoutThreshold || art == "" {
 		return text
@@ -59,7 +59,7 @@ func renderConnectedCardOnly(s Connected, art string, width int, panel playlists
 	textHeight := lipgloss.Height(text)
 	queueRows := artHeight - textHeight - 1 // -1 for the "─ Up Next ─" header
 	colWidth := rightColumnWidth(width, art)
-	upNext := renderUpNext(s.Now, panel, queueRows, colWidth)
+	upNext := renderUpNext(s.Now, panel, queue, queueRows, colWidth)
 	if upNext == "" {
 		// No room or no Up Next applicable — fall back to centered layout.
 		return lipgloss.JoinHorizontal(lipgloss.Center, art, "  ", text)
@@ -129,24 +129,17 @@ func renderDisconnectedCard() string {
 }
 
 // renderUpNext renders the Up Next block for the now-playing panel:
-// a "─ Up Next ─" header followed by either a list of upcoming tracks
-// or a single placeholder line. Returns "" to signal "skip Up Next, fall
-// back to the existing centered layout" — the caller treats that as a
-// no-op.
+// a "─ Up Next ─" header followed by queue rows (★ prefix) and/or
+// upcoming playlist tail rows and/or a placeholder line. Returns ""
+// when rows < 1 or width < 1 (caller falls back to centered layout).
 //
-// rows is the number of body rows available (after the header). width is
-// the column width available for the block. Returns "" when rows < 1 or
-// width < 1.
+// Row budget allocation (when total rows is positive):
+//   - queue rows take priority and consume up to len(queue) rows
+//   - any remaining rows go to placeholder/tail per upNextBody
 //
-// State dispatch (matches spec §3.3):
-//   - shuffle on              → "shuffling — next track unpredictable"
-//   - no playlist context     → "no queue"
-//   - cache miss (any reason) → "loading…"
-//   - cached, no error, current track found, more upcoming → tracks
-//   - cached, error           → "no queue"
-//   - cached, current at end  → "end of playlist"
-//   - cached, current missing → "no queue"
-func renderUpNext(now domain.NowPlaying, panel playlistsPanel, rows, width int) string {
+// queue is the goove-owned queue (Model.queue.Items); pass nil/empty
+// for the legacy read-only behaviour.
+func renderUpNext(now domain.NowPlaying, panel playlistsPanel, queue []domain.Track, rows, width int) string {
 	if rows < 1 || width < 1 {
 		return ""
 	}
@@ -159,11 +152,34 @@ func renderUpNext(now domain.NowPlaying, panel playlistsPanel, rows, width int) 
 		header = subtitleStyle.Render(headerLabel + pad)
 	}
 
-	body := upNextBody(now, panel, rows, width)
-	if body == "" {
+	var sb strings.Builder
+	queueRows := len(queue)
+	if queueRows > rows {
+		queueRows = rows
+	}
+	for i := 0; i < queueRows; i++ {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		row := fmt.Sprintf("★ %s — %s", queue[i].Title, queue[i].Artist)
+		sb.WriteString(truncate(row, width))
+	}
+
+	remaining := rows - queueRows
+	if remaining > 0 {
+		body := upNextBody(now, panel, remaining, width)
+		if body != "" {
+			if queueRows > 0 {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(body)
+		}
+	}
+
+	if sb.Len() == 0 {
 		return ""
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, header, body)
+	return lipgloss.JoinVertical(lipgloss.Left, header, sb.String())
 }
 
 // upNextBody returns the rendered body of the Up Next block — either a

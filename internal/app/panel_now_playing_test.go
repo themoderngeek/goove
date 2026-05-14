@@ -76,10 +76,10 @@ func newPlaylistsPanel() playlistsPanel {
 func TestRenderUpNextReturnsEmptyWhenNoRows(t *testing.T) {
 	now := domain.NowPlaying{CurrentPlaylistName: "P", Track: domain.Track{PersistentID: "PID"}}
 	p := newPlaylistsPanel()
-	if got := renderUpNext(now, p, 0, 30); got != "" {
+	if got := renderUpNext(now, p, nil, 0, 30); got != "" {
 		t.Errorf("rows=0: got %q; want empty", got)
 	}
-	if got := renderUpNext(now, p, 5, 0); got != "" {
+	if got := renderUpNext(now, p, nil, 5, 0); got != "" {
 		t.Errorf("width=0: got %q; want empty", got)
 	}
 }
@@ -91,7 +91,7 @@ func TestRenderUpNextShufflePlaceholder(t *testing.T) {
 		Track:               domain.Track{PersistentID: "PID"},
 	}
 	p := newPlaylistsPanel()
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "Up Next") {
 		t.Errorf("missing header: %q", got)
 	}
@@ -103,7 +103,7 @@ func TestRenderUpNextShufflePlaceholder(t *testing.T) {
 func TestRenderUpNextNoPlaylistContextPlaceholder(t *testing.T) {
 	now := domain.NowPlaying{CurrentPlaylistName: ""}
 	p := newPlaylistsPanel()
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "no queue") {
 		t.Errorf("missing 'no queue' placeholder: %q", got)
 	}
@@ -116,7 +116,7 @@ func TestRenderUpNextLoadingPlaceholder(t *testing.T) {
 	}
 	p := newPlaylistsPanel()
 	p.fetchingFor["Recents"] = true
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "loading") {
 		t.Errorf("missing 'loading' placeholder: %q", got)
 	}
@@ -128,7 +128,7 @@ func TestRenderUpNextLoadingWhenCacheMissNotYetFetching(t *testing.T) {
 		Track:               domain.Track{PersistentID: "PID"},
 	}
 	p := newPlaylistsPanel()
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "loading") {
 		t.Errorf("expected 'loading' placeholder when cache miss + not fetching: %q", got)
 	}
@@ -142,7 +142,7 @@ func TestRenderUpNextCacheErrorPlaceholder(t *testing.T) {
 	p := newPlaylistsPanel()
 	p.tracksByName["Recents"] = []domain.Track{{PersistentID: "X"}}
 	p.trackErrByName["Recents"] = errors.New("boom")
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "no queue") {
 		t.Errorf("expected 'no queue' on cache error: %q", got)
 	}
@@ -158,7 +158,7 @@ func TestRenderUpNextCacheMissWithErrorIsNotLoading(t *testing.T) {
 	}
 	p := newPlaylistsPanel()
 	p.trackErrByName["Recents"] = errors.New("signal: killed")
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if strings.Contains(got, "loading") {
 		t.Errorf("expected 'no queue' (error suppresses retry/loading) but got loading: %q", got)
 	}
@@ -180,7 +180,7 @@ func TestRenderUpNextHappyPath(t *testing.T) {
 		{Title: "Misty Mountain Hop", Artist: "Led Zeppelin", PersistentID: "PID-4"},
 		{Title: "Four Sticks", Artist: "Led Zeppelin", PersistentID: "PID-5"},
 	}
-	got := renderUpNext(now, p, 5, 60)
+	got := renderUpNext(now, p, nil, 5, 60)
 	if !strings.Contains(got, "Up Next") {
 		t.Errorf("missing header: %q", got)
 	}
@@ -205,7 +205,7 @@ func TestRenderUpNextEndOfPlaylistPlaceholder(t *testing.T) {
 		{Title: "First", PersistentID: "PID-1"},
 		{Title: "Last", PersistentID: "PID-LAST"},
 	}
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "end of playlist") {
 		t.Errorf("expected 'end of playlist': %q", got)
 	}
@@ -221,7 +221,7 @@ func TestRenderUpNextCurrentTrackNotInPlaylistPlaceholder(t *testing.T) {
 		{Title: "A", PersistentID: "PID-1"},
 		{Title: "B", PersistentID: "PID-2"},
 	}
-	got := renderUpNext(now, p, 5, 30)
+	got := renderUpNext(now, p, nil, 5, 30)
 	if !strings.Contains(got, "no queue") {
 		t.Errorf("expected 'no queue' when current track not in playlist: %q", got)
 	}
@@ -237,7 +237,7 @@ func TestRenderUpNextTruncatesTrackTitlesToWidth(t *testing.T) {
 		{Title: "Cur", PersistentID: "PID-1"},
 		{Title: "ThisTitleIsAbsurdlyLongAndShouldGetTruncatedByTheRenderer", Artist: "X", PersistentID: "PID-2"},
 	}
-	got := renderUpNext(now, p, 5, 20)
+	got := renderUpNext(now, p, nil, 5, 20)
 	if strings.Contains(got, "TruncatedByTheRenderer") {
 		t.Errorf("expected truncation; got full title in: %q", got)
 	}
@@ -258,7 +258,7 @@ func TestRenderUpNextCapsAtAvailableRows(t *testing.T) {
 		{Title: "T2", PersistentID: "PID-2"},
 		{Title: "T3", PersistentID: "PID-3"},
 	}
-	got := renderUpNext(now, p, 2, 30) // 2 body rows = 2 tracks max
+	got := renderUpNext(now, p, nil, 2, 30) // 2 body rows = 2 tracks max
 	if !strings.Contains(got, "T1") || !strings.Contains(got, "T2") {
 		t.Errorf("expected first two upcoming: %q", got)
 	}
@@ -451,5 +451,105 @@ func TestNowPlayingShowsLoadingWhenCacheMiss(t *testing.T) {
 	got := renderNowPlayingPanel(m, m.width)
 	if !strings.Contains(got, "loading") {
 		t.Errorf("expected 'loading' placeholder: %q", got)
+	}
+}
+
+func TestRenderUpNextShowsQueueRowsAboveTail(t *testing.T) {
+	now := domain.NowPlaying{
+		CurrentPlaylistName: "P",
+		Track:               domain.Track{PersistentID: "T1"},
+	}
+	p := newPlaylistsPanel()
+	p.tracksByName["P"] = []domain.Track{
+		{Title: "T1", PersistentID: "T1"},
+		{Title: "T2", PersistentID: "T2"},
+		{Title: "T3", PersistentID: "T3"},
+		{Title: "T4", PersistentID: "T4"},
+	}
+	queue := []domain.Track{
+		{Title: "HC", Artist: "Eagles", PersistentID: "HC"},
+		{Title: "WW", Artist: "Oasis", PersistentID: "WW"},
+	}
+	got := renderUpNext(now, p, queue, 5, 40)
+	if !strings.Contains(got, "★") {
+		t.Errorf("expected ★ prefix for queue rows; got %q", got)
+	}
+	if !strings.Contains(got, "HC") || !strings.Contains(got, "WW") {
+		t.Errorf("queue rows missing: %q", got)
+	}
+	if !strings.Contains(got, "T2") || !strings.Contains(got, "T3") || !strings.Contains(got, "T4") {
+		t.Errorf("playlist tail missing (rows = 5, 2 used by queue, 3 left for tail): %q", got)
+	}
+}
+
+func TestRenderUpNextQueueRowsTakeRowBudgetPriority(t *testing.T) {
+	now := domain.NowPlaying{
+		CurrentPlaylistName: "P",
+		Track:               domain.Track{PersistentID: "T1"},
+	}
+	p := newPlaylistsPanel()
+	p.tracksByName["P"] = []domain.Track{
+		{Title: "T1", PersistentID: "T1"},
+		{Title: "T2", PersistentID: "T2"},
+		{Title: "T3", PersistentID: "T3"},
+	}
+	queue := []domain.Track{
+		{Title: "Q1", Artist: "A", PersistentID: "Q1"},
+		{Title: "Q2", Artist: "A", PersistentID: "Q2"},
+		{Title: "Q3", Artist: "A", PersistentID: "Q3"},
+		{Title: "Q4", Artist: "A", PersistentID: "Q4"},
+		{Title: "Q5", Artist: "A", PersistentID: "Q5"},
+		{Title: "Q6", Artist: "A", PersistentID: "Q6"},
+		{Title: "Q7", Artist: "A", PersistentID: "Q7"},
+	}
+	got := renderUpNext(now, p, queue, 5, 40)
+	// All 5 row budget consumed by queue → no tail rows.
+	for _, q := range []string{"Q1", "Q2", "Q3", "Q4", "Q5"} {
+		if !strings.Contains(got, q) {
+			t.Errorf("missing queue row %s in %q", q, got)
+		}
+	}
+	for _, x := range []string{"T2", "T3"} {
+		if strings.Contains(got, x) {
+			t.Errorf("unexpected tail row %s in %q (queue should consume all rows)", x, got)
+		}
+	}
+}
+
+func TestRenderUpNextShuffleWithQueueRendersStarRowsThenPlaceholder(t *testing.T) {
+	now := domain.NowPlaying{
+		ShuffleEnabled:      true,
+		CurrentPlaylistName: "P",
+		Track:               domain.Track{PersistentID: "T1"},
+	}
+	p := newPlaylistsPanel()
+	queue := []domain.Track{
+		{Title: "HC", Artist: "Eagles", PersistentID: "HC"},
+	}
+	got := renderUpNext(now, p, queue, 5, 40)
+	if !strings.Contains(got, "★") || !strings.Contains(got, "HC") {
+		t.Errorf("expected queue row visible under shuffle; got %q", got)
+	}
+	if !strings.Contains(got, "shuffling") {
+		t.Errorf("expected shuffle placeholder below queue rows; got %q", got)
+	}
+}
+
+func TestRenderUpNextEmptyQueueUnchanged(t *testing.T) {
+	now := domain.NowPlaying{
+		CurrentPlaylistName: "P",
+		Track:               domain.Track{PersistentID: "T1"},
+	}
+	p := newPlaylistsPanel()
+	p.tracksByName["P"] = []domain.Track{
+		{Title: "T1", PersistentID: "T1"},
+		{Title: "T2", PersistentID: "T2"},
+	}
+	got := renderUpNext(now, p, nil, 5, 40)
+	if !strings.Contains(got, "T2") {
+		t.Errorf("playlist tail missing when queue empty: %q", got)
+	}
+	if strings.Contains(got, "★") {
+		t.Errorf("unexpected ★ prefix when queue is empty: %q", got)
 	}
 }
