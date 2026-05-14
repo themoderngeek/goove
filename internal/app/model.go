@@ -162,8 +162,3 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-// Placeholder — replaced by full definition in panel_queue.go (Task 8).
-type overlayState struct {
-	open   bool
-	cursor int
-}

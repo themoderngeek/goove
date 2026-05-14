@@ -37,6 +37,17 @@ func (m Model) View() string {
 	if m.height > 0 && m.height < minLayoutHeight {
 		return renderTooNarrow()
 	}
+	if m.overlay.open {
+		width := m.width
+		if width <= 0 {
+			width = 100
+		}
+		height := m.height
+		if height <= 0 {
+			height = 30
+		}
+		return renderOverlay(m, width, height)
+	}
 	return renderLayout(m)
 }
 
