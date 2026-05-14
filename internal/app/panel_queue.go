@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -99,4 +100,79 @@ func padBetween(left, right string, width int) string {
 		gap = 1
 	}
 	return left + strings.Repeat(" ", gap) + right
+}
+
+// updateOverlay handles keystrokes while the queue overlay is open. The
+// overlay is fully modal — all keys land here, and globals (space, n,
+// p, +/-, q-to-quit, Tab, digits, /, o) do not fire. When the user
+// presses Esc or Q the overlay closes; thereafter the normal global
+// key map applies.
+func updateOverlay(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+	// Clear-prompt mode absorbs the next keypress: y confirms, anything
+	// else cancels. Esc/Q still close (handled below) — they implicitly
+	// also cancel the prompt because we reset clearPrompt on close.
+	if m.clearPrompt {
+		s := msg.String()
+		if s != "esc" && s != "Q" {
+			if s == "y" {
+				m.queue.Clear()
+			}
+			m.clearPrompt = false
+			return m, nil
+		}
+	}
+
+	switch msg.String() {
+	case "esc", "Q":
+		m.overlay.open = false
+		m.clearPrompt = false
+		return m, nil
+
+	case "j", "down":
+		if m.overlay.cursor < m.queue.Len()-1 {
+			m.overlay.cursor++
+		}
+		return m, nil
+
+	case "k", "up":
+		if m.overlay.cursor > 0 {
+			m.overlay.cursor--
+		}
+		return m, nil
+
+	case "x":
+		m.queue.RemoveAt(m.overlay.cursor)
+		if m.overlay.cursor >= m.queue.Len() && m.overlay.cursor > 0 {
+			m.overlay.cursor--
+		}
+		return m, nil
+
+	case "K":
+		m.overlay.cursor = m.queue.MoveUp(m.overlay.cursor)
+		return m, nil
+
+	case "J":
+		m.overlay.cursor = m.queue.MoveDown(m.overlay.cursor)
+		return m, nil
+
+	case "c":
+		m.clearPrompt = true
+		return m, nil
+
+	case "enter":
+		if m.queue.Len() == 0 {
+			return m, nil
+		}
+		if m.overlay.cursor < 0 || m.overlay.cursor >= m.queue.Len() {
+			return m, nil
+		}
+		item := m.queue.Items[m.overlay.cursor]
+		m.queue.RemoveAt(m.overlay.cursor)
+		if m.overlay.cursor >= m.queue.Len() && m.overlay.cursor > 0 {
+			m.overlay.cursor--
+		}
+		m.pendingJumpPID = item.PersistentID
+		return m, playTrack(m.client, item.PersistentID)
+	}
+	return m, nil
 }
