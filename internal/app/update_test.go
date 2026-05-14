@@ -976,3 +976,56 @@ func TestKeysRouteToOverlayWhenOpen(t *testing.T) {
 		t.Errorf("overlay cursor = %d; want 1", got.overlay.cursor)
 	}
 }
+
+func TestKeyNWithEmptyQueueCallsNext(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	cmd()
+	if c.NextCalls != 1 {
+		t.Errorf("Next calls = %d; want 1 (empty queue path)", c.NextCalls)
+	}
+	if c.PlayTrackCalls != 0 {
+		t.Errorf("PlayTrack calls = %d; want 0 (empty queue)", c.PlayTrackCalls)
+	}
+}
+
+func TestKeyNWithQueueCallsPlayTrackAndPops(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "HC", PersistentID: "HC"},
+	})
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+	m.queue.Add(domain.Track{Title: "HC", PersistentID: "HC"})
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	got := updated.(Model)
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	cmd()
+	if c.NextCalls != 0 {
+		t.Errorf("Next calls = %d; want 0 (queue path should not call Next)", c.NextCalls)
+	}
+	if c.PlayTrackCalls != 1 {
+		t.Errorf("PlayTrack calls = %d; want 1", c.PlayTrackCalls)
+	}
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (head popped)", got.queue.Len())
+	}
+	if got.pendingJumpPID != "HC" {
+		t.Errorf("pendingJumpPID = %q; want HC (n is a user-driven jump)", got.pendingJumpPID)
+	}
+}

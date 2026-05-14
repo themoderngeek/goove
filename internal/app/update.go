@@ -330,6 +330,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, doAction(m.client.PlayPause)
 
 	case "n":
+		if m.queue.Len() > 0 {
+			head, _ := m.queue.PopHead()
+			m.pendingJumpPID = head.PersistentID
+			return m, playTrack(m.client, head.PersistentID)
+		}
 		return m, doAction(m.client.Next)
 
 	case "p":
