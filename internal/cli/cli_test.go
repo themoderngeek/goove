@@ -1461,3 +1461,25 @@ func TestPlaylistSingularAliasRoutes(t *testing.T) {
 		t.Errorf("singular alias did not route to playlists list: %q", stdout.String())
 	}
 }
+
+func TestQueueSubcommandPrintsHelpAndExitsZero(t *testing.T) {
+	c := fake.New()
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"queue"}, c, &stdout, &stderr)
+	if code != 0 {
+		t.Errorf("exit code = %d; want 0", code)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "queue") {
+		t.Errorf("stdout missing 'queue': %q", out)
+	}
+	if !strings.Contains(out, "TUI") {
+		t.Errorf("stdout missing TUI reference: %q", out)
+	}
+	if !strings.Contains(out, "a") || !strings.Contains(out, "Q") {
+		t.Errorf("stdout missing key references (a / Q): %q", out)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr non-empty: %q", stderr.String())
+	}
+}

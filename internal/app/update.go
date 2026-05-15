@@ -162,6 +162,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.focus = focusMain
 		return m, nil
 
+	case playPlaylistMsg:
+		if msg.err != nil {
+			m.lastError = msg.err
+			m.lastErrorAt = time.Now()
+			return m, clearErrorAfter()
+		}
+		return m, nil
+
 	case playTrackResultMsg:
 		if msg.err != nil {
 			m.lastError = msg.err
@@ -222,6 +230,23 @@ func (m Model) handleStatus(msg statusMsg) (Model, tea.Cmd) {
 		}
 	}
 
+	// Queue handoff: compare current tick's PID against the cached
+	// previous-tick state to decide intercept / drain / pop / no-op.
+	// The handler returns a Cmd (or nil) which is batched with anything
+	// the artwork / prefetch logic added.
+	prevPID := m.lastTrackPID
+	prevPlaylist := m.lastPlaylist
+	prevIdx := m.lastTrackIdx
+	var handoffCmd tea.Cmd
+	m, handoffCmd = m.handleQueueHandoff(msg.now, prevPID, prevPlaylist, prevIdx)
+	if handoffCmd != nil {
+		cmds = append(cmds, handoffCmd)
+	}
+	// Refresh the cache for the next tick.
+	m.lastTrackPID = msg.now.Track.PersistentID
+	m.lastPlaylist = msg.now.CurrentPlaylistName
+	m.lastTrackIdx = m.indexOfPID(msg.now.Track.PersistentID, msg.now.CurrentPlaylistName)
+
 	switch len(cmds) {
 	case 0:
 		return m, nil
@@ -238,6 +263,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		return m, nil
+	}
+
+	if m.overlay.open {
+		mm, cmd := updateOverlay(m, msg)
+		return mm, cmd
 	}
 
 	// Phase 2: focus-routed panel handlers run before globals.
@@ -288,6 +318,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 
+	case "Q":
+		m.overlay.open = true
+		m.overlay.cursor = 0
+		return m, nil
+
 	case " ":
 		if _, ok := m.state.(Disconnected); ok {
 			return m, doAction(m.client.Launch)
@@ -295,6 +330,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, doAction(m.client.PlayPause)
 
 	case "n":
+		if m.queue.Len() > 0 {
+			head, _ := m.queue.PopHead()
+			m.pendingJumpPID = head.PersistentID
+			return m, playTrack(m.client, head.PersistentID)
+		}
 		return m, doAction(m.client.Next)
 
 	case "p":
@@ -313,6 +353,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.focus = focusOutput
 		mm, cmd := onFocusOutput(m)
 		return mm, cmd
+
+	case "a":
+		if m.focus != focusMain {
+			return m, nil
+		}
+		return enqueueFocusedMainRow(m)
 
 	case "/":
 		if _, ok := m.state.(Disconnected); ok {

@@ -28,6 +28,7 @@ Usage:
   goove launch                Launch Apple Music if not running
   goove targets list|get|set [name]   Inspect or change the AirPlay device
   goove playlists list|tracks|play [args]   List/inspect/play playlists (alias: playlist)
+  goove queue                 Print queue help (queue management is TUI-only)
   goove help, --help, -h      Show this message
 
 Logs: ~/Library/Logs/goove/goove.log (TUI mode only)
@@ -61,6 +62,9 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 		return cmdTargets(args[1:], client, stdout, stderr)
 	case "playlists", "playlist":
 		return cmdPlaylists(args[1:], client, stdout, stderr)
+	case "queue":
+		fmt.Fprint(stdout, queueHelpText)
+		return 0
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usageText)
 		return 0
@@ -70,6 +74,30 @@ func Run(args []string, client music.Client, stdout, stderr io.Writer) int {
 		return 1
 	}
 }
+
+const queueHelpText = `goove queue — interactive queue management
+
+Queue management lives inside the TUI; there are no CLI verbs in V1
+because the queue is in-memory only and does not survive between
+goove invocations.
+
+To use the queue:
+  1. Run 'goove' to launch the TUI.
+  2. Focus a track row in the main panel (a playlist track list or
+     search results).
+  3. Press 'a' to add the focused track to the queue tail.
+  4. Press 'Q' to open the queue overlay.
+     Inside the overlay:
+       j / k       move cursor
+       enter       play this track now (others stay queued)
+       x           remove track at cursor
+       K / J       reorder up / down
+       c then y    clear the queue (any other key cancels)
+       esc / Q     close the overlay
+
+Queued tracks play after the currently-playing track ends. Once the
+queue drains, playback resumes the playlist that was interrupted.
+`
 
 // errorExit maps a music.Client error to a stderr message and an exit code.
 // Used by every command handler that calls a music.Client method.

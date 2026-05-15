@@ -3,12 +3,16 @@ package app
 import "strings"
 
 // globalKeysHint is shown on every hint bar.
-const globalKeysHint = "space:play/pause  n:next  p:prev  +/-:vol  q:quit"
+const globalKeysHint = "space:play/pause  n:next  p:prev  +/-:vol  a:queue  Q:queue-view  q:quit"
 
 // renderHintBar returns the bottom-of-screen hint string. Always includes
 // the global keys; appends panel-scoped hints based on m.focus. Style is
-// applied by view.go (footerStyle.Render).
+// applied by view.go (footerStyle.Render). Returns empty when the queue
+// overlay is open — the overlay renders its own help row.
 func renderHintBar(m Model) string {
+	if m.overlay.open {
+		return ""
+	}
 	var sb strings.Builder
 	sb.WriteString(globalKeysHint)
 	sb.WriteString("  ·  ")

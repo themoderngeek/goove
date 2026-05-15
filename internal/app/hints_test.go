@@ -39,3 +39,23 @@ func TestHintBarContainsPanelKeysForOutput(t *testing.T) {
 		t.Errorf("hint bar for Output missing 'switch': %q", got)
 	}
 }
+
+func TestHintBarIncludesAAndQ(t *testing.T) {
+	m := newTestModel()
+	got := renderHintBar(m)
+	if !strings.Contains(got, "a:queue") {
+		t.Errorf("hints missing 'a:queue': %q", got)
+	}
+	if !strings.Contains(got, "Q:queue-view") {
+		t.Errorf("hints missing 'Q:queue-view': %q", got)
+	}
+}
+
+func TestHintBarEmptyWhenOverlayOpen(t *testing.T) {
+	m := newTestModel()
+	m.overlay.open = true
+	got := renderHintBar(m)
+	if got != "" {
+		t.Errorf("hints not empty while overlay open: %q", got)
+	}
+}

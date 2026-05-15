@@ -608,8 +608,8 @@ func TestPlayTrack_OK(t *testing.T) {
 	if err := c.PlayTrack(context.Background(), "PID-A"); err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}
-	if !strings.Contains(runner.script, `persistent ID is "PID-A"`) {
-		t.Errorf("script missing persistent ID: %s", runner.script)
+	if !strings.Contains(runner.script, `set targetPID to "PID-A"`) {
+		t.Errorf("script missing persistent ID binding: %s", runner.script)
 	}
 }
 
@@ -633,7 +633,7 @@ func TestPlayTrack_EscapesPersistentID(t *testing.T) {
 	runner := &fakeRunner{out: []byte("OK\n")}
 	c := New(runner)
 	_ = c.PlayTrack(context.Background(), `weird " id`)
-	if !strings.Contains(runner.script, `persistent ID is "weird \" id"`) {
-		t.Errorf("persistent ID not escaped:\n%s", runner.script)
+	if !strings.Contains(runner.script, `set targetPID to "weird \" id"`) {
+		t.Errorf("persistent ID not escaped in binding:\n%s", runner.script)
 	}
 }

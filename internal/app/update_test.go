@@ -757,3 +757,275 @@ func TestStatusMsgDoesNotRetryAfterPreviousFetchError(t *testing.T) {
 		t.Errorf("expected nil Cmd; got %T (must not retry an errored playlist on every tick)", cmd)
 	}
 }
+
+func TestKeyAEnqueuesFocusedMainTrack(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	// Focus Main with one search-result row that has a PID.
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = []domain.Track{{Title: "Hotel California", PersistentID: "HC1"}}
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 1 {
+		t.Fatalf("queue.Len = %d; want 1", got.queue.Len())
+	}
+	if got.queue.Items[0].PersistentID != "HC1" {
+		t.Errorf("enqueued PID = %q; want HC1", got.queue.Items[0].PersistentID)
+	}
+}
+
+func TestKeyAOnEmptyPIDRefusesAndSetsError(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = []domain.Track{{Title: "NoPID"}} // empty PID
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (refused)", got.queue.Len())
+	}
+	if got.lastError == nil || !errors.Is(got.lastError, ErrNoPersistentID) {
+		t.Errorf("lastError = %v; want ErrNoPersistentID", got.lastError)
+	}
+}
+
+func TestKeyAOnNonMainFocusIsNoOp(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusPlaylists // not Main
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (no-op when focus != Main)", got.queue.Len())
+	}
+}
+
+func TestKeyAOnMainWithEmptyRowsIsNoOp(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	m.focus = focusMain
+	m.main.mode = mainPaneSearchResults
+	m.main.searchResults = nil
+	m.main.cursor = 0
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	got := updated.(Model)
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0", got.queue.Len())
+	}
+	if got.lastError != nil {
+		t.Errorf("lastError = %v; want nil (no-op silently)", got.lastError)
+	}
+}
+
+func TestHandleStatusInvokesHandoffAndRefreshesLastFields(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "LZ"}})
+	c.SetPlaylistTracks("LZ", []domain.Track{
+		{Title: "Black Dog", PersistentID: "BD"},
+		{Title: "Stairway", PersistentID: "ST"},
+	})
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "Hotel California", PersistentID: "HC"},
+	})
+	m := New(c, nil)
+	m.playlists.tracksByName["LZ"] = []domain.Track{
+		{Title: "Black Dog", PersistentID: "BD"},
+		{Title: "Stairway", PersistentID: "ST"},
+	}
+	// Prime previous-tick state to ST in LZ at index 2.
+	m.lastTrackPID = "ST"
+	m.lastPlaylist = "LZ"
+	m.lastTrackIdx = 2
+	// Queue Hotel California so the next tick triggers intercept.
+	m.queue.Add(domain.Track{Title: "Hotel California", PersistentID: "HC"})
+
+	// Status tick: Music.app moved to the next playlist track (BD again
+	// won't do — pick a different PID so it's a real change).
+	now := domain.NowPlaying{
+		Track:               domain.Track{Title: "End", PersistentID: "END"},
+		Volume:              50,
+		IsPlaying:           true,
+		CurrentPlaylistName: "LZ",
+	}
+
+	updated, cmd := m.Update(statusMsg{now: now})
+	got := updated.(Model)
+
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (intercept popped head)", got.queue.Len())
+	}
+	if got.resume.PlaylistName != "LZ" || got.resume.NextIndex != 3 {
+		t.Errorf("resume = %+v; want {LZ 3}", got.resume)
+	}
+	if got.lastTrackPID != "END" {
+		t.Errorf("lastTrackPID = %q; want END", got.lastTrackPID)
+	}
+	if got.lastPlaylist != "LZ" {
+		t.Errorf("lastPlaylist = %q; want LZ", got.lastPlaylist)
+	}
+	// END isn't in the cached LZ tracks, so lastTrackIdx is 0.
+	if got.lastTrackIdx != 0 {
+		t.Errorf("lastTrackIdx = %d; want 0", got.lastTrackIdx)
+	}
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	// The intercept Cmd should produce a PlayTrack call when invoked.
+	_ = cmd() // may be a tea.Batch wrapper — call it to flush
+	rec := c.PlayTrackRecord()
+	if len(rec) != 1 || rec[0].PersistentID != "HC" {
+		t.Errorf("PlayTrack record = %v; want [{HC}]", rec)
+	}
+}
+
+func TestHandleStatusRefreshesLastFieldsOnNormalTick(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetPlaylists([]domain.Playlist{{Name: "LZ"}})
+	c.SetPlaylistTracks("LZ", []domain.Track{{Title: "Stairway", PersistentID: "ST"}})
+	m := New(c, nil)
+	m.playlists.tracksByName["LZ"] = []domain.Track{{Title: "Stairway", PersistentID: "ST"}}
+
+	now := domain.NowPlaying{
+		Track:               domain.Track{Title: "Stairway", PersistentID: "ST"},
+		Volume:              50,
+		IsPlaying:           true,
+		CurrentPlaylistName: "LZ",
+	}
+	updated, _ := m.Update(statusMsg{now: now})
+	got := updated.(Model)
+
+	if got.lastTrackPID != "ST" {
+		t.Errorf("lastTrackPID = %q; want ST", got.lastTrackPID)
+	}
+	if got.lastPlaylist != "LZ" {
+		t.Errorf("lastPlaylist = %q; want LZ", got.lastPlaylist)
+	}
+	if got.lastTrackIdx != 1 {
+		t.Errorf("lastTrackIdx = %d; want 1", got.lastTrackIdx)
+	}
+}
+
+func TestKeyQOpensOverlay(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Q'}})
+	got := updated.(Model)
+	if !got.overlay.open {
+		t.Fatal("overlay.open false after Q")
+	}
+	if got.overlay.cursor != 0 {
+		t.Errorf("cursor = %d; want 0 on fresh open", got.overlay.cursor)
+	}
+}
+
+func TestKeyQuitSuppressedWhileOverlayOpen(t *testing.T) {
+	m := newTestModel()
+	m.overlay.open = true
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Errorf("q while overlay open returned cmd %v; want nil (suppressed quit)", cmd)
+	}
+}
+
+func TestKeysRouteToOverlayWhenOpen(t *testing.T) {
+	m := newTestModel()
+	m.overlay.open = true
+	m.queue.Add(domain.Track{Title: "A", PersistentID: "A1"})
+	m.queue.Add(domain.Track{Title: "B", PersistentID: "B1"})
+
+	// 'j' should move overlay cursor, not switch focus.
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	got := updated.(Model)
+	if got.overlay.cursor != 1 {
+		t.Errorf("overlay cursor = %d; want 1", got.overlay.cursor)
+	}
+}
+
+func TestKeyNWithEmptyQueueCallsNext(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	cmd()
+	if c.NextCalls != 1 {
+		t.Errorf("Next calls = %d; want 1 (empty queue path)", c.NextCalls)
+	}
+	if c.PlayTrackCalls != 0 {
+		t.Errorf("PlayTrack calls = %d; want 0 (empty queue)", c.PlayTrackCalls)
+	}
+}
+
+func TestKeyNWithQueueCallsPlayTrackAndPops(t *testing.T) {
+	c := fake.New()
+	_ = c.Launch(context.Background())
+	c.SetLibraryTracks([]domain.Track{
+		{Title: "HC", PersistentID: "HC"},
+	})
+	c.SetTrack(domain.Track{Title: "T"}, 200, 10, true)
+	m := New(c, nil)
+	tmp, _ := m.Update(statusMsg{now: domain.NowPlaying{Track: domain.Track{Title: "T"}, IsPlaying: true}})
+	m = tmp.(Model)
+	m.queue.Add(domain.Track{Title: "HC", PersistentID: "HC"})
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	got := updated.(Model)
+	if cmd == nil {
+		t.Fatal("expected a Cmd")
+	}
+	cmd()
+	if c.NextCalls != 0 {
+		t.Errorf("Next calls = %d; want 0 (queue path should not call Next)", c.NextCalls)
+	}
+	if c.PlayTrackCalls != 1 {
+		t.Errorf("PlayTrack calls = %d; want 1", c.PlayTrackCalls)
+	}
+	if got.queue.Len() != 0 {
+		t.Errorf("queue.Len = %d; want 0 (head popped)", got.queue.Len())
+	}
+	if got.pendingJumpPID != "HC" {
+		t.Errorf("pendingJumpPID = %q; want HC (n is a user-driven jump)", got.pendingJumpPID)
+	}
+}
