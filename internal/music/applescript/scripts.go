@@ -284,12 +284,36 @@ end tell`
 
 // scriptPlayTrack starts playback of the track with the given persistent ID.
 // %s is the EXACT persistent ID. Returns "OK" | "NOT_RUNNING" | "NOT_FOUND".
+//
+// Lookup order:
+//  1. library playlist 1 — fast path; covers tracks the user has in their
+//     local library.
+//  2. subscription playlists — covers tracks the user can play via Apple
+//     Music streaming but has NOT added to their library (e.g. tracks
+//     inside Apple Music editorial playlists like "Get Up!").
+//  3. user playlists — covers smart-playlist or imported references that
+//     somehow miss library playlist 1.
+//
+// The iterative fallback over subscription / user playlists is O(N) in the
+// number of playlists; acceptable for a one-shot per queued track.
 const scriptPlayTrack = `tell application "Music"
 	if not running then return "NOT_RUNNING"
+	set targetPID to "%s"
 	try
-		play (some track of library playlist 1 whose persistent ID is "%s")
-	on error
-		return "NOT_FOUND"
+		play (some track of library playlist 1 whose persistent ID is targetPID)
+		return "OK"
 	end try
-	return "OK"
+	repeat with p in subscription playlists
+		try
+			play (some track of p whose persistent ID is targetPID)
+			return "OK"
+		end try
+	end repeat
+	repeat with p in user playlists
+		try
+			play (some track of p whose persistent ID is targetPID)
+			return "OK"
+		end try
+	end repeat
+	return "NOT_FOUND"
 end tell`
